@@ -1,0 +1,96 @@
+package io.whyjvm;
+
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.whyjvm.agent.AgentLoop;
+import io.whyjvm.agent.LlmProvider;
+import io.whyjvm.agent.StubLlmProvider;
+import io.whyjvm.capture.EvidenceCapture;
+import io.whyjvm.capture.InMemoryIncidentStore;
+import io.whyjvm.capture.IncidentStore;
+import io.whyjvm.capture.JfrEvidenceCapture;
+import io.whyjvm.mcp.McpToolRegistry;
+import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
+import io.whyjvm.sink.LoggingSink;
+import io.whyjvm.sink.Sink;
+import io.whyjvm.trigger.IncidentTriggerProcessor;
+import io.whyjvm.trigger.TriggerService;
+
+import java.nio.file.Path;
+
+/**
+ * Fachada de montagem do why-jvm. Liga gatilho -> captura -> tools -> agente ->
+ * sink e expoe o {@link SpanProcessor} que voce registra no seu
+ * {@code SdkTracerProvider}.
+ *
+ * <p>Use o {@link Builder} para escolher provider de IA e sink (as duas
+ * fronteiras de extensao). Os defaults fecham o circuito da Fase 0 sem
+ * precisar de key.
+ */
+public final class WhyJvm {
+
+    private final SpanProcessor spanProcessor;
+
+    private WhyJvm(SpanProcessor spanProcessor) {
+        this.spanProcessor = spanProcessor;
+    }
+
+    /** Registre isto no seu SdkTracerProvider para ligar o gatilho. */
+    public SpanProcessor spanProcessor() {
+        return spanProcessor;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private Path incidentDir = Path.of("incidents");
+        private IncidentStore store;
+        private LlmProvider provider = new StubLlmProvider();
+        private Sink sink = new LoggingSink();
+        private int maxToolCalls = 8;
+
+        public Builder incidentDir(Path dir) {
+            this.incidentDir = dir;
+            return this;
+        }
+
+        public Builder store(IncidentStore store) {
+            this.store = store;
+            return this;
+        }
+
+        /** Fronteira de IA: troque o stub por Claude/Gemini (BYOK). */
+        public Builder llmProvider(LlmProvider provider) {
+            this.provider = provider;
+            return this;
+        }
+
+        /** Fronteira de saida: troque o log por Slack/WhatsApp/webhook. */
+        public Builder sink(Sink sink) {
+            this.sink = sink;
+            return this;
+        }
+
+        public Builder maxToolCalls(int maxToolCalls) {
+            this.maxToolCalls = maxToolCalls;
+            return this;
+        }
+
+        public WhyJvm build() {
+            IncidentStore incidentStore = (store != null) ? store : new InMemoryIncidentStore();
+
+            EvidenceCapture capture = new JfrEvidenceCapture(incidentDir, incidentStore);
+
+            McpToolRegistry registry = new McpToolRegistry()
+                    .register(new GetExceptionDetailsTool(incidentStore));
+            // TODO Fase 2/3: registrar triage, get_slow_traces, get_gc_activity,
+            //                get_allocation_hotspots, get_lock_contention.
+
+            AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
+            TriggerService triggerService = new TriggerService(capture, agent, sink);
+
+            return new WhyJvm(new IncidentTriggerProcessor(triggerService));
+        }
+    }
+}

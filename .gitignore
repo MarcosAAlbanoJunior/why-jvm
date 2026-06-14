@@ -1,0 +1,20 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Incident evidence (gerado em runtime)
+/incidents/
+*.jfr
+
+# Secrets / config local
+*.env
+.env
+application-local.properties
