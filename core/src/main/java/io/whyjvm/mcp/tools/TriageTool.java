@@ -158,8 +158,10 @@ public final class TriageTool implements Tool {
                     "alocacao", "get_allocation_hotspots");
         }
         return new Hypothesis(
-                "nenhuma dimensao JFR domina claramente; comece pelo GC e alocacao.",
-                "indefinida", "get_gc_activity");
+                "latencia alta sem sinal forte de GC/lock/alocacao JVM-wide — confirme o que a thread do "
+                        + "request fez (espera vs trabalho) antes de concluir; nao culpe alocacao/GC triviais.",
+                "a confirmar (espera vs trabalho)",
+                "get_thread_activity");
     }
 
     private static String gcLine(Signals s) {

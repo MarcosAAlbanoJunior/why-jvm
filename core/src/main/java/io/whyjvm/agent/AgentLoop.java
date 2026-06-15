@@ -27,9 +27,21 @@ public final class AgentLoop {
             Investigue usando as ferramentas disponiveis. Comece sempre por triage
             quando existir. Faca drill-down apenas na dimensao que a triagem apontar
             como suspeita. Nao chame ferramentas de dimensoes irrelevantes.
+            Numeros pequenos sao ruido de fundo: toda JVM sempre tem alguma alocacao
+            e algum GC. So atribua a causa a uma dimensao se a magnitude for
+            claramente significativa frente a latencia do incidente. Se a latencia e
+            alta mas nenhuma dimensao JVM tem sinal relevante (sem exception, GC
+            pequeno, alocacao baixa, sem lock), a causa provavel e EXTERNA a JVM —
+            espera de I/O, query de banco ou chamada downstream; diga isso e nao
+            culpe uma alocacao trivial. Calibre a confianca pela forca da evidencia:
+            alta so com evidencia forte e consistente.
+            Em incidentes lentos, comece o drill por get_thread_activity: ele diz se
+            a thread do request esperou (sleep/I/O/lock = causa externa) ou trabalhou
+            (CPU = investigar algoritmo/alocacao). So depois olhe GC/alocacao.
             Ao concluir, produza um laudo JSON com os campos: endpoint, tipo,
             causa_raiz, evidencia (lista), confianca (alta/media/baixa) e
-            correcao_sugerida.
+            correcao_sugerida. Responda APENAS com o JSON cru, sem cercas de
+            markdown e sem texto antes ou depois.
             """;
 
     private final LlmProvider provider;
@@ -66,10 +78,12 @@ public final class AgentLoop {
                 return turnLimitLaudo(incident);
             }
 
+            // Registra o turno do modelo (pedido de tools) de forma estruturada,
+            // depois cada resultado referenciando a chamada que respondeu.
+            context.add(Message.assistantToolCalls(response.toolCalls()));
             for (ToolCall call : response.toolCalls()) {
                 ToolResult result = registry.call(call.name(), call.arguments());
-                context.add(Message.assistant("[chamou " + call.name() + "]"));
-                context.add(Message.toolResult(call.id(), result.content()));
+                context.add(Message.toolResult(call, result.content()));
                 toolCallsUsed++;
             }
         }
@@ -86,7 +100,7 @@ public final class AgentLoop {
 
     private Laudo parseLaudo(String json, IncidentRecord incident) {
         try {
-            JsonNode n = mapper.readTree(json);
+            JsonNode n = mapper.readTree(extractJson(json));
             List<String> evidencia = new ArrayList<>();
             if (n.has("evidencia") && n.get("evidencia").isArray()) {
                 n.get("evidencia").forEach(e -> evidencia.add(e.asText()));
@@ -108,6 +122,20 @@ public final class AgentLoop {
 
     private static String text(JsonNode n, String field, String fallback) {
         return n.hasNonNull(field) ? n.get(field).asText() : fallback;
+    }
+
+    /**
+     * Extrai o objeto JSON de uma resposta que pode vir embrulhada — modelos
+     * costumam cercar o JSON em ```json ... ``` ou colocar texto em volta. Pega do
+     * primeiro {@code &#123;} ao ultimo {@code &#125;}; se nao houver, devolve o texto cru.
+     */
+    static String extractJson(String text) {
+        if (text == null) {
+            return "";
+        }
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        return (start >= 0 && end > start) ? text.substring(start, end + 1) : text;
     }
 
     private static Laudo turnLimitLaudo(IncidentRecord i) {

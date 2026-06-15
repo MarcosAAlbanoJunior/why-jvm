@@ -9,6 +9,7 @@ val otelVersion = "1.45.0"
 dependencies {
     implementation(project(":core"))
     implementation(project(":sinks"))
+    implementation(project(":llm"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
 

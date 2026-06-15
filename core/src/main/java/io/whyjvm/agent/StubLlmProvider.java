@@ -94,10 +94,12 @@ public final class StubLlmProvider implements LlmProvider {
         return null;
     }
 
-    /** O AgentLoop registra cada chamada como um marcador "[chamou <nome>]". */
+    /** Olha os turnos de assistente que pediram tools para ver se {@code toolName} ja rodou. */
     private static boolean alreadyCalled(List<Message> context, String toolName) {
-        String marker = "[chamou " + toolName + "]";
-        return context.stream().anyMatch(m -> marker.equals(m.content()));
+        return context.stream()
+                .filter(m -> m.role() == Message.Role.ASSISTANT)
+                .flatMap(m -> m.toolCalls().stream())
+                .anyMatch(c -> toolName.equals(c.name()));
     }
 
     private static String extractIncidentId(List<Message> context) {

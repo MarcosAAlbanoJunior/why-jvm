@@ -49,7 +49,9 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
             return;
         }
 
-        triggerService.fire(new Incident(s.getName(), type, durationMs, fingerprint, s));
+        // onEnd roda na propria thread do request (no span.end()): captura o nome.
+        triggerService.fire(new Incident(s.getName(), type, durationMs, fingerprint,
+                Thread.currentThread().getName(), s));
     }
 
     /**

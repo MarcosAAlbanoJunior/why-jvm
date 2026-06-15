@@ -18,3 +18,4 @@ build/
 *.env
 .env
 application-local.properties
+why-jvm-local.properties

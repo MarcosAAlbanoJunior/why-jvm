@@ -16,6 +16,7 @@ só enxerga agregados do incidente. Isso é o que torna o custo de token viável
 |---|---|
 | [`core/`](core/) | A biblioteca — o produto. Gatilho, captura, tools MCP, agente, sink. JAR puro, sem Spring. |
 | [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail hoje; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
+| [`llm/`](llm/) | Provider de IA real (`LangChain4jProvider`) — Gemini via LangChain4j, multi-provider por env. Também fora do `core`. |
 | [`sample-app/`](sample-app/) | App Spring Boot de teste. Existe só para gerar spans reais e exercitar o circuito. Não é o produto. |
 
 ## Arquitetura (pacotes do `core`)
@@ -37,7 +38,10 @@ As duas **fronteiras de extensão** do modo autônomo:
 
 - **`LlmProvider`** (`agent/`) — qual IA. BYOK: a implementação lê a própria key do
   ambiente; o núcleo nunca guarda credencial. Default: `StubLlmProvider` (sem key).
-- **`Sink`** (`sink/`) — onde o laudo é postado. Default: `LoggingSink`.
+  Provider real no módulo [`llm/`](llm/): `LangChain4jProvider` (Gemini hoje;
+  Claude/OpenAI/Ollama trocando dependência + env, ver `LlmProviders.fromEnv()`).
+- **`Sink`** (`sink/`) — onde o laudo é postado. Default: `LoggingSink`; e-mail no
+  módulo [`sinks/`](sinks/).
 
 Trocam-se via `WhyJvm.builder().llmProvider(...).sink(...)`.
 

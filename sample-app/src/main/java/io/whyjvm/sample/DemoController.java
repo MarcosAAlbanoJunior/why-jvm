@@ -15,6 +15,10 @@ import java.util.List;
  *   <li>GET /demo/slow?mb=N   -> aloca N MB de lixo; com mb alto fica lento e
  *       gera pausa de GC, disparando um incidente SLOW que a triagem correlaciona.
  *       Aqueca o baseline com mb=0 antes de dar o pico.</li>
+ *   <li>GET /demo/db-search?slow=true -> simula uma busca no banco. O caminho
+ *       normal e rapido (indice); slow=true dorme 10s (query patologica) e dispara
+ *       SLOW. Aqueca com slow=false antes. Sem rastro de GC/lock/alocacao no JFR —
+ *       e o caso honesto de lentidao por espera/IO, sem dimensao JFR culpada.</li>
  * </ul>
  */
 @RestController
@@ -32,6 +36,22 @@ public class DemoController {
         // de alocacao/GC no JFR — material real para a triagem apontar a dimensao.
         long checksum = mb > 0 ? churnGarbage(mb) : 0;
         return "slow done: " + mb + "MB (checksum " + checksum + ")";
+    }
+
+    @GetMapping("/demo/db-search")
+    public String dbSearch(@RequestParam(name = "slow", defaultValue = "false") boolean slow) {
+        return "encontrados " + searchOrders(slow) + " pedidos";
+    }
+
+    private int searchOrders(boolean slow) {
+        try {
+            // Simula a ida ao banco. Caminho normal e rapido (query com indice);
+            // slow=true simula a query patologica (full scan, lock, etc.).
+            Thread.sleep(slow ? 10_000 : 8);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return slow ? 1287 : 42;
     }
 
     private long churnGarbage(int mb) {

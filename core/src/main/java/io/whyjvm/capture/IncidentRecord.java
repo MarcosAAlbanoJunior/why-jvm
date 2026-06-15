@@ -20,6 +20,9 @@ public record IncidentRecord(
         // Identidade do incidente: (endpoint, assinatura do erro). Mesma
         // assinatura = mesmo incidente; e a chave do dedup e, na Fase 2, da triagem.
         String fingerprint,
+        // Nome da thread que atendeu o request, para atribuir os eventos JFR da
+        // janela a ela (distinguir espera da propria thread de ruido de fundo).
+        String threadName,
         long durationMs,
         // Detalhes da exception (quando type == ERROR), extraidos do span.
         String exceptionType,

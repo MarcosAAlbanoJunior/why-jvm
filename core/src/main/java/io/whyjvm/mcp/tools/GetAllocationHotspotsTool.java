@@ -62,7 +62,11 @@ public final class GetAllocationHotspotsTool extends JfrDimensionTool {
         }
         long total = bySite.values().stream().mapToLong(Long::longValue).sum();
 
-        StringBuilder sb = new StringBuilder("Top call sites por bytes alocados (amostrado):\n");
+        StringBuilder sb = new StringBuilder(
+                "Total amostrado na janela: %d KB em %d amostras (avalie se a magnitude e relevante "
+                        + "frente a latencia; KB poucos sao ruido de fundo, nao causa).\n"
+                        .formatted(total / 1024, samples.size()));
+        sb.append("Top call sites por bytes alocados (amostrado):\n");
         bySite.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(topN)

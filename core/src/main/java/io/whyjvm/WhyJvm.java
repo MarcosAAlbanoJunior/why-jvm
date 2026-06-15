@@ -13,6 +13,7 @@ import io.whyjvm.mcp.tools.GetAllocationHotspotsTool;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
 import io.whyjvm.mcp.tools.GetGcActivityTool;
 import io.whyjvm.mcp.tools.GetLockContentionTool;
+import io.whyjvm.mcp.tools.GetThreadActivityTool;
 import io.whyjvm.mcp.tools.TriageTool;
 import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
@@ -106,6 +107,7 @@ public final class WhyJvm {
             McpToolRegistry registry = new McpToolRegistry()
                     .register(new TriageTool(incidentStore))
                     .register(new GetExceptionDetailsTool(incidentStore))
+                    .register(new GetThreadActivityTool(incidentStore))
                     .register(new GetGcActivityTool(incidentStore))
                     .register(new GetAllocationHotspotsTool(incidentStore))
                     .register(new GetLockContentionTool(incidentStore));

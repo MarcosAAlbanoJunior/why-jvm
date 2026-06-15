@@ -18,7 +18,7 @@ class TriageToolTest {
     void triageOfErrorPointsToExceptionDimension() {
         IncidentRecord r = new IncidentRecord(
                 "inc-1", Instant.now(), "POST /checkout", IncidentType.ERROR, "fp-1",
-                12,
+                "http-nio-exec-1", 12,
                 "java.lang.IllegalStateException", "boom",
                 "java.lang.IllegalStateException: boom\n\tat com.foo.Bar.doIt(Bar.java:42)",
                 null);
@@ -35,7 +35,7 @@ class TriageToolTest {
         InMemoryIncidentStore store = new InMemoryIncidentStore();
         store.save(new IncidentRecord(
                 "inc-2", Instant.now(), "GET /x", IncidentType.ERROR, "fp-2",
-                5, "java.lang.RuntimeException", "x", "java.lang.RuntimeException: x", null));
+                "http-nio-exec-2", 5, "java.lang.RuntimeException", "x", "java.lang.RuntimeException: x", null));
 
         TriageTool tool = new TriageTool(store);
         ToolResult result = tool.execute(Map.of("incidentId", "inc-2"));
