@@ -5,7 +5,6 @@ import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.whyjvm.trigger.Incident;
 import jdk.jfr.Configuration;
-import jdk.jfr.FlightRecorder;
 import jdk.jfr.Recording;
 
 import java.nio.file.Files;
@@ -60,7 +59,7 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
     public IncidentRecord capture(Incident incident) {
         String incidentId = newIncidentId(incident);
 
-        Path jfr = takeSnapshot(incidentId);
+        Path jfr = dumpWindow(incidentId);
         SpanData span = incident.span();
 
         ExceptionDetails exc = extractException(span);
@@ -82,18 +81,29 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
         return record;
     }
 
-    /** No disparo: congela a janela imediatamente, antes de chamar o agente. */
-    private Path takeSnapshot(String incidentId) {
-        try (Recording snapshot = FlightRecorder.getFlightRecorder().takeSnapshot()) {
-            if (snapshot.getSize() == 0) {
-                return null;
-            }
+    /**
+     * No disparo: congela a janela imediatamente, antes de chamar o agente.
+     *
+     * <p>Usa {@code rolling.dump()} em vez de {@code FlightRecorder.takeSnapshot()}:
+     * o snapshot so enxerga chunks ja rotacionados para o repositorio em disco e
+     * por isso vinha vazio logo apos o disparo. O dump forca a escrita do chunk
+     * ativo, garantindo a evidencia recente da janela.
+     */
+    private Path dumpWindow(String incidentId) {
+        if (rolling == null) {
+            return null; // JFR nao iniciou no ambiente; segue sem snapshot.
+        }
+        try {
             Files.createDirectories(incidentDir);
             Path out = incidentDir.resolve(incidentId + ".jfr");
-            snapshot.dump(out);
+            rolling.dump(out);
+            if (Files.size(out) == 0) {
+                Files.deleteIfExists(out);
+                return null;
+            }
             return out;
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "Falha ao tirar snapshot JFR do incidente " + incidentId, e);
+            LOG.log(Level.WARNING, "Falha ao gravar snapshot JFR do incidente " + incidentId, e);
             return null;
         }
     }

@@ -59,7 +59,7 @@ o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica
 | 0 | Circuito fechado: erro → captura → `get_exception_details` → laudo | ✅ esqueleto pronto |
 | 1 | Fingerprint, dedup e cooldown (controle de tempestade) | ✅ `Fingerprints` + `IncidentDeduplicator` |
 | 2 | `triage` determinística (correlação latência×GC×lock) | ✅ `TriageTool` (correlação JFR vem na Fase 3) |
-| 3 | Baseline de lentidão + tools de GC/alocação/lock | 🟡 `LatencyBaseline` ✅; tools JFR pendentes |
+| 3 | Baseline de lentidão + tools de GC/alocação/lock | 🟢 baseline + tools JFR (GC/aloc/lock) + triagem correlacionada; falta `get_slow_traces` (captura da árvore do trace) |
 | 4 | Sinks reais (Slack, WhatsApp/Evolution API) | novas impls de `Sink` |
 | 5 | Split MCP por HTTP (SDK `io.modelcontextprotocol.sdk:mcp`), opcional em Go | nota em `core/build.gradle.kts` |
 

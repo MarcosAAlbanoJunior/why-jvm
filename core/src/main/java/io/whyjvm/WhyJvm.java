@@ -9,7 +9,10 @@ import io.whyjvm.capture.InMemoryIncidentStore;
 import io.whyjvm.capture.IncidentStore;
 import io.whyjvm.capture.JfrEvidenceCapture;
 import io.whyjvm.mcp.McpToolRegistry;
+import io.whyjvm.mcp.tools.GetAllocationHotspotsTool;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
+import io.whyjvm.mcp.tools.GetGcActivityTool;
+import io.whyjvm.mcp.tools.GetLockContentionTool;
 import io.whyjvm.mcp.tools.TriageTool;
 import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
@@ -102,9 +105,12 @@ public final class WhyJvm {
 
             McpToolRegistry registry = new McpToolRegistry()
                     .register(new TriageTool(incidentStore))
-                    .register(new GetExceptionDetailsTool(incidentStore));
-            // TODO Fase 3: registrar get_slow_traces, get_gc_activity,
-            //              get_allocation_hotspots, get_lock_contention.
+                    .register(new GetExceptionDetailsTool(incidentStore))
+                    .register(new GetGcActivityTool(incidentStore))
+                    .register(new GetAllocationHotspotsTool(incidentStore))
+                    .register(new GetLockContentionTool(incidentStore));
+            // TODO Fase 3: get_slow_traces depende de capturar a arvore de spans
+            //              do trace (filhos), nao so o span que disparou.
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
             TriggerService triggerService = new TriggerService(capture, agent, sink);

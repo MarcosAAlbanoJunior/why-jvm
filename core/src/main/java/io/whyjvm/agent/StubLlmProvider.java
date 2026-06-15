@@ -36,10 +36,15 @@ public final class StubLlmProvider implements LlmProvider {
                     new ToolCall("call-triage", "triage", Map.of("incidentId", incidentId))));
         }
 
-        // 2) A triagem aponta a exception: drill-down.
-        if (available(tools, "get_exception_details") && !alreadyCalled(context, "get_exception_details")) {
+        // 2) Drill-down dirigido: segue o "Proximo passo sugerido" da triagem.
+        //    Sem triagem, cai no get_exception_details (circuito da Fase 0).
+        String drill = suggestedNextTool(context, tools);
+        if (drill == null && available(tools, "get_exception_details")) {
+            drill = "get_exception_details";
+        }
+        if (drill != null && !alreadyCalled(context, drill)) {
             return LlmResponse.callTools(List.of(
-                    new ToolCall("call-exc", "get_exception_details", Map.of("incidentId", incidentId))));
+                    new ToolCall("call-drill", drill, Map.of("incidentId", incidentId))));
         }
 
         // 3) Evidencia suficiente: monta o laudo a partir do ultimo agregado lido.
@@ -52,7 +57,7 @@ public final class StubLlmProvider implements LlmProvider {
 
         String laudo = """
                 {
-                  "causa_raiz": "Exception nao tratada no endpoint (stub provider, sem analise real).",
+                  "causa_raiz": "Diagnostico requer um provider LLM real; o stub apenas coletou a evidencia abaixo (sem analise).",
                   "evidencia": ["%s"],
                   "confianca": "baixa",
                   "correcao_sugerida": "Substituir o StubLlmProvider por um provider LLM real para analise."
@@ -63,6 +68,30 @@ public final class StubLlmProvider implements LlmProvider {
 
     private static boolean available(List<Tool> tools, String name) {
         return tools.stream().anyMatch(t -> name.equals(t.name()));
+    }
+
+    /** Le o "Proximo passo sugerido: X" da triagem; devolve X se for tool registrada. */
+    private static String suggestedNextTool(List<Message> context, List<Tool> tools) {
+        String marker = "Proximo passo sugerido:";
+        for (Message m : context) {
+            if (m.role() != Message.Role.TOOL || m.content() == null) {
+                continue;
+            }
+            for (String line : m.content().split("\\R")) {
+                String s = line.strip();
+                if (s.startsWith(marker)) {
+                    String token = s.substring(marker.length()).strip();
+                    int space = token.indexOf(' ');
+                    if (space >= 0) {
+                        token = token.substring(0, space);
+                    }
+                    if (available(tools, token)) {
+                        return token;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /** O AgentLoop registra cada chamada como um marcador "[chamou <nome>]". */
