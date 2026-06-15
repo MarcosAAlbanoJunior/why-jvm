@@ -1,0 +1,18 @@
+# Copie este arquivo para `why-jvm-local.properties` (na raiz do repo) e preencha.
+# Esse arquivo COM segredos esta no .gitignore e nao vai pro git.
+# O app le estas chaves pelo Environment do Spring; cada uma tambem aceita a
+# variavel de ambiente equivalente (ex.: LLM_API_KEY, WHYJVM_SMTP_HOST).
+
+# --- IA (Gemini) ---
+llm.api-key=sua-chave-do-google-ai-studio
+# opcionais (estes sao os defaults):
+llm.provider=gemini
+llm.model=gemini-2.5-flash
+
+# --- E-mail (SMTP / Gmail) ---
+whyjvm.smtp.host=smtp.gmail.com
+whyjvm.smtp.port=587
+whyjvm.smtp.user=voce@gmail.com
+whyjvm.smtp.pass=appPasswordSemEspacos
+whyjvm.mail.from=voce@gmail.com
+whyjvm.mail.to=voce@gmail.com
