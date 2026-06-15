@@ -1,3 +1,3 @@
 rootProject.name = "why-jvm-mcp"
 
-include("core", "sample-app")
+include("core", "sinks", "sample-app")

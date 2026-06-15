@@ -15,6 +15,7 @@ só enxerga agregados do incidente. Isso é o que torna o custo de token viável
 | Módulo | O que é |
 |---|---|
 | [`core/`](core/) | A biblioteca — o produto. Gatilho, captura, tools MCP, agente, sink. JAR puro, sem Spring. |
+| [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail hoje; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
 | [`sample-app/`](sample-app/) | App Spring Boot de teste. Existe só para gerar spans reais e exercitar o circuito. Não é o produto. |
 
 ## Arquitetura (pacotes do `core`)
@@ -60,7 +61,7 @@ o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica
 | 1 | Fingerprint, dedup e cooldown (controle de tempestade) | ✅ `Fingerprints` + `IncidentDeduplicator` |
 | 2 | `triage` determinística (correlação latência×GC×lock) | ✅ `TriageTool` (correlação JFR vem na Fase 3) |
 | 3 | Baseline de lentidão + tools de GC/alocação/lock | 🟢 baseline + tools JFR (GC/aloc/lock) + triagem correlacionada; falta `get_slow_traces` (captura da árvore do trace) |
-| 4 | Sinks reais (Slack, WhatsApp/Evolution API) | novas impls de `Sink` |
+| 4 | Sinks reais (e-mail, Slack, WhatsApp) | 🟢 `EmailSink` (módulo `sinks/`, SMTP via env); Slack/WhatsApp pendentes |
 | 5 | Split MCP por HTTP (SDK `io.modelcontextprotocol.sdk:mcp`), opcional em Go | nota em `core/build.gradle.kts` |
 
 ## Requisitos
