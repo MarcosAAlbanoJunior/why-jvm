@@ -21,25 +21,26 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
 
     private final TriggerService triggerService;
     private final IncidentDeduplicator dedup;
+    private final LatencyBaseline baseline;
 
-    public IncidentTriggerProcessor(TriggerService triggerService, IncidentDeduplicator dedup) {
+    public IncidentTriggerProcessor(TriggerService triggerService, IncidentDeduplicator dedup,
+                                    LatencyBaseline baseline) {
         this.triggerService = triggerService;
         this.dedup = dedup;
+        this.baseline = baseline;
     }
 
     @Override
     public void onEnd(ReadableSpan span) {
         SpanData s = span.toSpanData();
         boolean isError = s.getStatus().getStatusCode() == StatusCode.ERROR;
-
-        // TODO Fase 3: boolean isSlow = baseline.isAnomalous(s.getName(), durationMs);
         long durationMs = (s.getEndEpochNanos() - s.getStartEpochNanos()) / 1_000_000;
 
-        if (!isError) {
-            return;
+        IncidentType type = classify(s.getName(), isError, durationMs);
+        if (type == null) {
+            return; // request normal: nada a investigar.
         }
 
-        IncidentType type = IncidentType.ERROR;
         String fingerprint = Fingerprints.of(s.getName(), type, s);
 
         // Controle de tempestade: uma investigacao por fingerprint a cada
@@ -49,6 +50,18 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
         }
 
         triggerService.fire(new Incident(s.getName(), type, durationMs, fingerprint, s));
+    }
+
+    /**
+     * Natureza do incidente, ou {@code null} se o request e normal. Erros sempre
+     * disparam; lentidao so para requests bem-sucedidos — nao poluir o baseline
+     * de latencia com a duracao de requests que falharam.
+     */
+    private IncidentType classify(String endpoint, boolean isError, long durationMs) {
+        if (isError) {
+            return IncidentType.ERROR;
+        }
+        return baseline.isAnomalousAndRecord(endpoint, durationMs) ? IncidentType.SLOW : null;
     }
 
     @Override

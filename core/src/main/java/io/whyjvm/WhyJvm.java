@@ -15,6 +15,7 @@ import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
 import io.whyjvm.trigger.IncidentDeduplicator;
 import io.whyjvm.trigger.IncidentTriggerProcessor;
+import io.whyjvm.trigger.LatencyBaseline;
 import io.whyjvm.trigger.TriggerService;
 
 import java.nio.file.Path;
@@ -53,6 +54,7 @@ public final class WhyJvm {
         private Sink sink = new LoggingSink();
         private int maxToolCalls = 8;
         private Duration cooldown = Duration.ofMinutes(10);
+        private double slowFactor = 3.0;
 
         public Builder incidentDir(Path dir) {
             this.incidentDir = dir;
@@ -87,6 +89,12 @@ public final class WhyJvm {
             return this;
         }
 
+        /** Fator sobre o p99 movel que marca um request como lento (default: 3x). */
+        public Builder slowThreshold(double factor) {
+            this.slowFactor = factor;
+            return this;
+        }
+
         public WhyJvm build() {
             IncidentStore incidentStore = (store != null) ? store : new InMemoryIncidentStore();
 
@@ -101,8 +109,9 @@ public final class WhyJvm {
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
             TriggerService triggerService = new TriggerService(capture, agent, sink);
             IncidentDeduplicator dedup = new IncidentDeduplicator(cooldown);
+            LatencyBaseline baseline = new LatencyBaseline(slowFactor);
 
-            return new WhyJvm(new IncidentTriggerProcessor(triggerService, dedup));
+            return new WhyJvm(new IncidentTriggerProcessor(triggerService, dedup, baseline));
         }
     }
 }
