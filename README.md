@@ -57,7 +57,7 @@ o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica
 | Fase | Entrega | Status no código |
 |---|---|---|
 | 0 | Circuito fechado: erro → captura → `get_exception_details` → laudo | ✅ esqueleto pronto |
-| 1 | Fingerprint, dedup e cooldown (controle de tempestade) | TODO em `IncidentTriggerProcessor` |
+| 1 | Fingerprint, dedup e cooldown (controle de tempestade) | ✅ `Fingerprints` + `IncidentDeduplicator` |
 | 2 | `triage` determinística (correlação latência×GC×lock) | TODO em `WhyJvm.Builder` |
 | 3 | Baseline de lentidão + tools de GC/alocação/lock | TODOs em `trigger/` e `mcp/tools/` |
 | 4 | Sinks reais (Slack, WhatsApp/Evolution API) | novas impls de `Sink` |

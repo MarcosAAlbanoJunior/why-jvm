@@ -12,10 +12,12 @@ import io.whyjvm.mcp.McpToolRegistry;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
 import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
+import io.whyjvm.trigger.IncidentDeduplicator;
 import io.whyjvm.trigger.IncidentTriggerProcessor;
 import io.whyjvm.trigger.TriggerService;
 
 import java.nio.file.Path;
+import java.time.Duration;
 
 /**
  * Fachada de montagem do why-jvm. Liga gatilho -> captura -> tools -> agente ->
@@ -49,6 +51,7 @@ public final class WhyJvm {
         private LlmProvider provider = new StubLlmProvider();
         private Sink sink = new LoggingSink();
         private int maxToolCalls = 8;
+        private Duration cooldown = Duration.ofMinutes(10);
 
         public Builder incidentDir(Path dir) {
             this.incidentDir = dir;
@@ -77,6 +80,12 @@ public final class WhyJvm {
             return this;
         }
 
+        /** Janela de cooldown do controle de tempestade (default: 10 minutos). */
+        public Builder cooldown(Duration cooldown) {
+            this.cooldown = cooldown;
+            return this;
+        }
+
         public WhyJvm build() {
             IncidentStore incidentStore = (store != null) ? store : new InMemoryIncidentStore();
 
@@ -89,8 +98,9 @@ public final class WhyJvm {
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
             TriggerService triggerService = new TriggerService(capture, agent, sink);
+            IncidentDeduplicator dedup = new IncidentDeduplicator(cooldown);
 
-            return new WhyJvm(new IncidentTriggerProcessor(triggerService));
+            return new WhyJvm(new IncidentTriggerProcessor(triggerService, dedup));
         }
     }
 }

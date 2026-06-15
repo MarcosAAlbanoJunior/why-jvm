@@ -17,6 +17,9 @@ public record IncidentRecord(
         Instant capturedAt,
         String endpoint,
         IncidentType type,
+        // Identidade do incidente: (endpoint, assinatura do erro). Mesma
+        // assinatura = mesmo incidente; e a chave do dedup e, na Fase 2, da triagem.
+        String fingerprint,
         long durationMs,
         // Detalhes da exception (quando type == ERROR), extraidos do span.
         String exceptionType,

@@ -20,9 +20,11 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 public final class IncidentTriggerProcessor implements SpanProcessor {
 
     private final TriggerService triggerService;
+    private final IncidentDeduplicator dedup;
 
-    public IncidentTriggerProcessor(TriggerService triggerService) {
+    public IncidentTriggerProcessor(TriggerService triggerService, IncidentDeduplicator dedup) {
         this.triggerService = triggerService;
+        this.dedup = dedup;
     }
 
     @Override
@@ -33,10 +35,20 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
         // TODO Fase 3: boolean isSlow = baseline.isAnomalous(s.getName(), durationMs);
         long durationMs = (s.getEndEpochNanos() - s.getStartEpochNanos()) / 1_000_000;
 
-        if (isError) {
-            // TODO Fase 1: if (!dedup.shouldFire(fingerprint(s))) return;
-            triggerService.fire(new Incident(s.getName(), IncidentType.ERROR, durationMs, s));
+        if (!isError) {
+            return;
         }
+
+        IncidentType type = IncidentType.ERROR;
+        String fingerprint = Fingerprints.of(s.getName(), type, s);
+
+        // Controle de tempestade: uma investigacao por fingerprint a cada
+        // cooldown. As outras N falhas so incrementam o contador (custo zero).
+        if (!dedup.shouldFire(fingerprint)) {
+            return;
+        }
+
+        triggerService.fire(new Incident(s.getName(), type, durationMs, fingerprint, s));
     }
 
     @Override

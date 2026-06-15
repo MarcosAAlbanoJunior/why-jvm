@@ -70,6 +70,7 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
                 Instant.now(),
                 incident.endpoint(),
                 incident.type(),
+                incident.fingerprint(),
                 incident.durationMs(),
                 exc.type(),
                 exc.message(),
