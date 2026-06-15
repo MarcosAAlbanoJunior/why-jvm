@@ -2,31 +2,24 @@ package io.whyjvm.mcp.tools;
 
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.capture.IncidentStore;
+import io.whyjvm.capture.TriageSignals;
 import io.whyjvm.mcp.Tool;
 import io.whyjvm.mcp.ToolResult;
-import io.whyjvm.mcp.tools.JfrCorrelation.Signals;
 import io.whyjvm.trigger.IncidentType;
 
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- * Fase 2/3: a triagem deterministica. E o coracao da economia e <b>sempre</b> a
- * primeira chamada do agente.
+ * A triagem deterministica. E o coracao da economia e <b>sempre</b> a primeira
+ * chamada do agente.
  *
- * <p>Roda uma correlacao barata sobre o pacote de evidencia e entrega ao agente
- * uma <b>hipotese inicial</b> com a dimensao suspeita. Assim o agente ja comeca
- * apontado e gasta menos turnos — nao faz drill-down em dimensoes irrelevantes.
- *
- * <p>Fase 3: quando ha snapshot JFR, le os numeros headline de cada dimensao
- * (maior pausa de GC, espera de lock, bytes alocados) numa unica passada via
- * {@link JfrCorrelation} e, para incidentes SLOW, escolhe a dimensao que mais
- * pesa na latencia. Nao chama LLM nem gasta token: e if/else e numeros.
+ * <p>Entrega ao agente uma <b>hipotese inicial</b> com a dimensao suspeita, a
+ * partir dos sinais headline ({@link TriageSignals}) que o
+ * {@link io.whyjvm.capture.EvidenceExtractor} ja calculou na captura. Para
+ * incidentes SLOW, escolhe a dimensao que mais pesa na latencia. Nao chama LLM
+ * nem le JFR: e if/else e numeros sobre o agregado pronto.
  */
 public final class TriageTool implements Tool {
-
-    private static final Logger LOG = Logger.getLogger(TriageTool.class.getName());
 
     /** Fracao da latencia a partir da qual uma dimensao JFR e considerada suspeita. */
     private static final double SHARE_THRESHOLD = 0.10;
@@ -76,13 +69,13 @@ public final class TriageTool implements Tool {
 
     /** Monta o agregado da triagem. Pacote: visivel para teste. */
     static String report(IncidentRecord r) {
-        Signals sig = readSignals(r);
+        TriageSignals sig = r.triageSignals();
         Hypothesis h = hypothesize(r, sig);
-        boolean hasException = r.exceptionType() != null;
+        boolean hasException = r.exception() != null;
         String exceptionLine = !hasException
                 ? "(nenhuma)"
-                : r.exceptionType()
-                + (r.exceptionMessage() != null ? " — \"" + firstLine(r.exceptionMessage()) + "\"" : "");
+                : r.exception().type()
+                + (r.exception().message() != null ? " — \"" + firstLine(r.exception().message()) + "\"" : "");
 
         return """
                 TRIAGEM do incidente %s
@@ -108,20 +101,8 @@ public final class TriageTool implements Tool {
                 h.hypothesis(), h.dimension(), h.nextStep());
     }
 
-    private static Signals readSignals(IncidentRecord r) {
-        if (r.jfrSnapshot() == null) {
-            return null;
-        }
-        try {
-            return JfrCorrelation.read(r.jfrSnapshot(), r.capturedAt());
-        } catch (Exception e) {
-            LOG.log(Level.WARNING, "Falha ao correlacionar JFR do incidente " + r.incidentId(), e);
-            return null;
-        }
-    }
-
-    private static Hypothesis hypothesize(IncidentRecord r, Signals sig) {
-        if (r.type() == IncidentType.ERROR && r.exceptionType() != null) {
+    private static Hypothesis hypothesize(IncidentRecord r, TriageSignals sig) {
+        if (r.type() == IncidentType.ERROR && r.exception() != null) {
             return new Hypothesis(
                     "erro de aplicacao — uma exception nao tratada propagou ate a borda do request.",
                     "exception", "get_exception_details");
@@ -164,7 +145,7 @@ public final class TriageTool implements Tool {
                 "get_thread_activity");
     }
 
-    private static String gcLine(Signals s) {
+    private static String gcLine(TriageSignals s) {
         if (s == null) {
             return "sem snapshot JFR";
         }
@@ -175,7 +156,7 @@ public final class TriageTool implements Tool {
                 .formatted(s.longestGcPauseMs(), s.gcCount(), s.totalGcPauseMs());
     }
 
-    private static String lockLine(Signals s) {
+    private static String lockLine(TriageSignals s) {
         if (s == null) {
             return "sem snapshot JFR";
         }
@@ -183,7 +164,7 @@ public final class TriageTool implements Tool {
                 : "espera total %dms".formatted(s.totalLockWaitMs());
     }
 
-    private static String allocLine(Signals s) {
+    private static String allocLine(TriageSignals s) {
         if (s == null) {
             return "sem snapshot JFR";
         }

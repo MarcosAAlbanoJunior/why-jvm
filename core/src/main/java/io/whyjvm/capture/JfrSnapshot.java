@@ -1,9 +1,10 @@
-package io.whyjvm.mcp.tools;
+package io.whyjvm.capture;
 
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedFrame;
 import jdk.jfr.consumer.RecordedMethod;
 import jdk.jfr.consumer.RecordedStackTrace;
+import jdk.jfr.consumer.RecordedThread;
 import jdk.jfr.consumer.RecordingFile;
 
 import java.io.IOException;
@@ -13,9 +14,9 @@ import java.time.Instant;
 import java.util.function.Consumer;
 
 /**
- * Leitura do snapshot JFR de um incidente. As tools de dimensao (GC, alocacao,
- * lock) iteram os eventos via {@link RecordingFile} e <b>agregam</b> — nunca
- * devolvem evento cru (Portao 2: e onde o custo de token escaparia).
+ * Leitura do snapshot JFR de um incidente. Helpers usados pelo
+ * {@link EvidenceExtractor} para iterar os eventos da janela e ler campos
+ * comuns. As tools nao leem mais JFR — consomem os agregados ja extraidos.
  */
 final class JfrSnapshot {
 
@@ -61,5 +62,15 @@ final class JfrSnapshot {
             }
         }
         return null;
+    }
+
+    /** Nome da thread do evento; para ExecutionSample, o campo {@code sampledThread}. */
+    static String threadName(RecordedEvent event) {
+        RecordedThread thread = event.getThread();
+        if (thread == null && event.hasField("sampledThread")
+                && event.getValue("sampledThread") instanceof RecordedThread sampled) {
+            thread = sampled;
+        }
+        return thread != null ? thread.getJavaName() : null;
     }
 }

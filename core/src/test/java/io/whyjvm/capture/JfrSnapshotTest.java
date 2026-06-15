@@ -1,4 +1,4 @@
-package io.whyjvm.mcp.tools;
+package io.whyjvm.capture;
 
 import jdk.jfr.Event;
 import jdk.jfr.Label;

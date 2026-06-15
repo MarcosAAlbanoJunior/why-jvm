@@ -1,6 +1,6 @@
 package io.whyjvm.mcp.tools;
 
-import io.whyjvm.mcp.tools.GetThreadActivityTool.Activity;
+import io.whyjvm.capture.ThreadActivity;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,12 +9,11 @@ class GetThreadActivityToolTest {
 
     @Test
     void identifiesWaitWhenSleepDominates() {
-        Activity a = new Activity();
-        a.sleepMs = 10_000;
-        a.sleepSite = "io.whyjvm.sample.DemoController.searchOrders";
-        a.cpuSamples = 0;
+        ThreadActivity a = new ThreadActivity(
+                "http-nio-8080-exec-3", 10_000,
+                "io.whyjvm.sample.DemoController.searchOrders", 0, 0, 0, 0);
 
-        String out = GetThreadActivityTool.summarize("http-nio-8080-exec-3", 10_010, a);
+        String out = GetThreadActivityTool.summarize(a, 10_010);
 
         assertTrue(out.contains("Thread.sleep: 10000ms"), out);
         assertTrue(out.contains("searchOrders"), out);
@@ -23,20 +22,18 @@ class GetThreadActivityToolTest {
 
     @Test
     void identifiesCpuWorkWhenSamplesDominate() {
-        Activity a = new Activity();
-        a.cpuSamples = 40;
+        ThreadActivity a = new ThreadActivity("worker-1", 0, null, 0, 0, 0, 40);
 
-        String out = GetThreadActivityTool.summarize("worker-1", 500, a);
+        String out = GetThreadActivityTool.summarize(a, 500);
 
         assertTrue(out.contains("majoritariamente em CPU"), out);
     }
 
     @Test
     void pointsToIoWhenIoDominates() {
-        Activity a = new Activity();
-        a.ioMs = 9_800;
+        ThreadActivity a = new ThreadActivity("http-nio-8080-exec-5", 0, null, 9_800, 0, 0, 0);
 
-        String out = GetThreadActivityTool.summarize("http-nio-8080-exec-5", 10_000, a);
+        String out = GetThreadActivityTool.summarize(a, 10_000);
 
         assertTrue(out.contains("ESPERANDO (I/O)"), out);
     }

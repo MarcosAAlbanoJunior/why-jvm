@@ -1,23 +1,15 @@
 package io.whyjvm.mcp.tools;
 
+import io.whyjvm.capture.AllocationHotspots;
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.capture.IncidentStore;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
- * Fase 3: hotspots de alocacao na janela. Le {@code jdk.ObjectAllocationSample}
- * (amostrado, JDK 16+) e devolve o Top N de call sites por bytes alocados — o
- * "buildLineItems responde por 73% das alocacoes".
+ * Hotspots de alocacao na janela: Top N de call sites por bytes alocados — o
+ * "buildLineItems responde por 73% das alocacoes". Le o agregado ja extraido
+ * ({@link AllocationHotspots}, amostrado via jdk.ObjectAllocationSample, JDK 16+).
  */
-public final class GetAllocationHotspotsTool extends JfrDimensionTool {
-
-    private static final int TOP_N = 5;
+public final class GetAllocationHotspotsTool extends DimensionTool {
 
     public GetAllocationHotspotsTool(IncidentStore store) {
         super(store);
@@ -34,44 +26,21 @@ public final class GetAllocationHotspotsTool extends JfrDimensionTool {
     }
 
     @Override
-    protected String aggregate(IncidentRecord record, Path jfr) throws IOException {
-        List<AllocSample> samples = new ArrayList<>();
-        JfrSnapshot.forEachEvent(jfr, record.capturedAt(), event -> {
-            if (!"jdk.ObjectAllocationSample".equals(event.getEventType().getName())) {
-                return;
-            }
-            String site = JfrSnapshot.topFrame(event);
-            long weight = event.hasField("weight") ? event.getLong("weight") : 0L;
-            if (site != null && weight > 0) {
-                samples.add(new AllocSample(site, weight));
-            }
-        });
-        return summarize(samples, TOP_N);
+    protected String render(IncidentRecord record) {
+        return summarize(record.dimensions().allocationHotspots());
     }
 
-    record AllocSample(String site, long bytes) {
-    }
-
-    static String summarize(List<AllocSample> samples, int topN) {
-        if (samples.isEmpty()) {
+    static String summarize(AllocationHotspots alloc) {
+        if (alloc == null || alloc.topSites().isEmpty()) {
             return "Nenhuma amostra de alocacao na janela.";
         }
-        Map<String, Long> bySite = new LinkedHashMap<>();
-        for (AllocSample s : samples) {
-            bySite.merge(s.site(), s.bytes(), Long::sum);
-        }
-        long total = bySite.values().stream().mapToLong(Long::longValue).sum();
-
         StringBuilder sb = new StringBuilder(
-                "Total amostrado na janela: %d KB em %d amostras (avalie se a magnitude e relevante "
-                        + "frente a latencia; KB poucos sao ruido de fundo, nao causa).\n"
-                        .formatted(total / 1024, samples.size()));
+                "Total amostrado na janela: %d KB em %d amostras (avalie se a magnitude e relevante frente a latencia; KB poucos sao ruido de fundo, nao causa).\n"
+                        .formatted(alloc.totalSampledBytes() / 1024, alloc.sampleCount()));
         sb.append("Top call sites por bytes alocados (amostrado):\n");
-        bySite.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(topN)
-                .forEach(e -> sb.append("- %s: %d KB (%d%%)\n"
-                        .formatted(e.getKey(), e.getValue() / 1024, e.getValue() * 100 / total)));
+        for (AllocationHotspots.Site s : alloc.topSites()) {
+            sb.append("- %s: %d KB (%d%%)\n".formatted(s.site(), s.bytes() / 1024, Math.round(s.pct())));
+        }
         return sb.toString();
     }
 }
