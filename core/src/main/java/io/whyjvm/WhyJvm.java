@@ -10,6 +10,7 @@ import io.whyjvm.capture.IncidentStore;
 import io.whyjvm.capture.JfrEvidenceCapture;
 import io.whyjvm.mcp.McpToolRegistry;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
+import io.whyjvm.mcp.tools.TriageTool;
 import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
 import io.whyjvm.trigger.IncidentDeduplicator;
@@ -92,9 +93,10 @@ public final class WhyJvm {
             EvidenceCapture capture = new JfrEvidenceCapture(incidentDir, incidentStore);
 
             McpToolRegistry registry = new McpToolRegistry()
+                    .register(new TriageTool(incidentStore))
                     .register(new GetExceptionDetailsTool(incidentStore));
-            // TODO Fase 2/3: registrar triage, get_slow_traces, get_gc_activity,
-            //                get_allocation_hotspots, get_lock_contention.
+            // TODO Fase 3: registrar get_slow_traces, get_gc_activity,
+            //              get_allocation_hotspots, get_lock_contention.
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
             TriggerService triggerService = new TriggerService(capture, agent, sink);

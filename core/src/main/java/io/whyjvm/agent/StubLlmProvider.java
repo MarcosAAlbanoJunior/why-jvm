@@ -8,9 +8,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Provider deterministico, sem key, para fechar o circuito da Fase 0 e para
- * testes. Imita o comportamento minimo de um agente: na primeira rodada chama
- * {@code get_exception_details}; depois do resultado, devolve um laudo JSON.
+ * Provider deterministico, sem key, para fechar o circuito sem LLM e para testes.
+ * Imita o caminho minimo de um agente real: {@code triage} primeiro (Fase 2),
+ * depois drill-down em {@code get_exception_details}, e por fim um laudo JSON.
+ *
+ * <p>Adapta-se ao catalogo: so chama uma tool se ela estiver registrada, entao
+ * funciona tanto com a triagem quanto sem (degrada para o circuito da Fase 0).
  *
  * <p>Troque por um provider real (Claude/Gemini) implementando {@link LlmProvider}.
  */
@@ -25,17 +28,21 @@ public final class StubLlmProvider implements LlmProvider {
 
     @Override
     public LlmResponse generate(List<Message> context, List<Tool> tools) {
-        boolean alreadyInvestigated = context.stream()
-                .anyMatch(m -> m.role() == Message.Role.TOOL);
+        String incidentId = extractIncidentId(context);
 
-        if (!alreadyInvestigated) {
-            String incidentId = extractIncidentId(context);
+        // 1) Sempre comeca por triage, se disponivel (Fase 2).
+        if (available(tools, "triage") && !alreadyCalled(context, "triage")) {
             return LlmResponse.callTools(List.of(
-                    new ToolCall("call-1", "get_exception_details",
-                            Map.of("incidentId", incidentId))
-            ));
+                    new ToolCall("call-triage", "triage", Map.of("incidentId", incidentId))));
         }
 
+        // 2) A triagem aponta a exception: drill-down.
+        if (available(tools, "get_exception_details") && !alreadyCalled(context, "get_exception_details")) {
+            return LlmResponse.callTools(List.of(
+                    new ToolCall("call-exc", "get_exception_details", Map.of("incidentId", incidentId))));
+        }
+
+        // 3) Evidencia suficiente: monta o laudo a partir do ultimo agregado lido.
         String evidence = context.stream()
                 .filter(m -> m.role() == Message.Role.TOOL)
                 .map(Message::content)
@@ -52,6 +59,16 @@ public final class StubLlmProvider implements LlmProvider {
                 }
                 """.formatted(firstLine.replace("\"", "'"));
         return LlmResponse.finalAnswer(laudo);
+    }
+
+    private static boolean available(List<Tool> tools, String name) {
+        return tools.stream().anyMatch(t -> name.equals(t.name()));
+    }
+
+    /** O AgentLoop registra cada chamada como um marcador "[chamou <nome>]". */
+    private static boolean alreadyCalled(List<Message> context, String toolName) {
+        String marker = "[chamou " + toolName + "]";
+        return context.stream().anyMatch(m -> marker.equals(m.content()));
     }
 
     private static String extractIncidentId(List<Message> context) {
