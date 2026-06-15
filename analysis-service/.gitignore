@@ -1,0 +1,5 @@
+# binários e artefatos de build
+/bin/
+*.exe
+# store local em disco (default do dev)
+/incidents-store/

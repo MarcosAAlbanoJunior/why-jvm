@@ -74,10 +74,15 @@ partir do disco; idempotência por `incidentId`; tratar `202`.
 
 ## Track B — Go (consome o JSON) — começa contra as fixtures do M0
 
-### B1 — Ingest + store
+### B1 — Ingest + store ✅
 
 `POST /v1/incidents`, auth, validação de `schemaVersion`, store idempotente (disco
 primeiro, Postgres depois), `/healthz`, resposta `202`.
+
+- **Entregue:** módulo Go [`analysis-service/`](analysis-service/) (stdlib-only):
+  ingest com auth bearer + validação + persistência idempotente lossless em disco,
+  `/healthz`. Testes carregam as fixtures reais do `schema/` (202, idempotência,
+  401, 400). Consumidor fechado contra o contrato do M0.
 
 ### B2 — Tools como leitores finos
 
