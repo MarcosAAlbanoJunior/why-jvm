@@ -5,20 +5,22 @@ import io.whyjvm.capture.IncidentStore;
 import io.whyjvm.mcp.Tool;
 import io.whyjvm.mcp.ToolResult;
 
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Map;
 
 /**
- * Base das tools que leem o snapshot JFR de um incidente. Cuida do boilerplate
- * comum — carregar o registro, checar que existe snapshot, tratar erro de I/O —
- * deixando cada tool concreta com apenas a sua agregacao de dimensao.
+ * Base das tools de dimensao. Cuida do boilerplate comum — carregar o registro,
+ * tratar incidente inexistente — deixando cada tool concreta apenas com a
+ * renderizacao do seu agregado.
+ *
+ * <p>As tools <b>nao leem mais JFR</b>: o {@link io.whyjvm.capture.EvidenceExtractor}
+ * ja extraiu os agregados na captura e os congelou no {@link IncidentRecord}. Aqui
+ * so se transforma o agregado estruturado em texto para o contexto do agente.
  */
-abstract class JfrDimensionTool implements Tool {
+abstract class DimensionTool implements Tool {
 
     protected final IncidentStore store;
 
-    protected JfrDimensionTool(IncidentStore store) {
+    protected DimensionTool(IncidentStore store) {
         this.store = store;
     }
 
@@ -43,17 +45,9 @@ abstract class JfrDimensionTool implements Tool {
         if (record == null) {
             return ToolResult.error("Incidente nao encontrado: " + incidentId);
         }
-        if (record.jfrSnapshot() == null) {
-            return ToolResult.ok("Incidente " + incidentId + " nao tem snapshot JFR "
-                    + "(a captura nao gerou evidencia desta janela).");
-        }
-        try {
-            return ToolResult.ok(aggregate(record, record.jfrSnapshot()));
-        } catch (IOException e) {
-            return ToolResult.error("Falha ao ler o snapshot JFR de " + incidentId + ": " + e.getMessage());
-        }
+        return ToolResult.ok(render(record));
     }
 
-    /** Le o snapshot e devolve o agregado da dimensao, pronto para o contexto. */
-    protected abstract String aggregate(IncidentRecord record, Path jfr) throws IOException;
+    /** Renderiza o agregado da dimensao a partir do registro ja extraido. */
+    protected abstract String render(IncidentRecord record);
 }

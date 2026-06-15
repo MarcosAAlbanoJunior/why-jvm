@@ -3,6 +3,7 @@ package io.whyjvm.trigger;
 import io.whyjvm.agent.AgentLoop;
 import io.whyjvm.agent.Laudo;
 import io.whyjvm.capture.EvidenceCapture;
+import io.whyjvm.capture.EvidenceCapture.Captured;
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.sink.Sink;
 
@@ -37,17 +38,22 @@ public final class TriggerService {
     }
 
     public void fire(Incident incident) {
-        // Portao 2 comeca aqui: congelar AGORA, sincronamente.
-        IncidentRecord record = capture.capture(incident);
-        LOG.info("Incidente capturado: " + record.incidentId() + " (" + record.endpoint() + ")");
+        // Portao 2 / 5.5#1: congelar AGORA, sincronamente (so o freeze, barato).
+        Captured captured = capture.freeze(incident);
+        LOG.info("Incidente congelado: " + captured.record().incidentId()
+                + " (" + captured.record().endpoint() + ")");
 
-        // Investigacao fora da thread do request: nao penalizar a app.
+        // Fora da thread do request: extracao pesada do JFR + investigacao. O
+        // executor e single-thread, entao a extracao e naturalmente single-flight —
+        // uma tempestade de incidentes nao dispara N parses concorrentes.
         investigators.submit(() -> {
             try {
+                IncidentRecord record = capture.extract(captured);
                 Laudo laudo = agent.investigate(record);
                 sink.publish(laudo);
             } catch (Exception e) {
-                LOG.log(Level.SEVERE, "Falha ao investigar incidente " + record.incidentId(), e);
+                LOG.log(Level.SEVERE, "Falha ao investigar incidente "
+                        + captured.record().incidentId(), e);
             }
         });
     }

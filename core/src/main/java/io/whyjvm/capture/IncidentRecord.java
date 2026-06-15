@@ -2,34 +2,62 @@ package io.whyjvm.capture;
 
 import io.whyjvm.trigger.IncidentType;
 
-import java.nio.file.Path;
 import java.time.Instant;
 
 /**
- * O pacote de evidencia duravel de um incidente. E o que o servidor MCP le e
- * agrega; o agente nunca enxerga nada alem do que as tools extraem daqui.
+ * O pacote de evidencia duravel de um incidente, ja com os agregados extraidos do
+ * JFR. E o que as tools leem (sem re-parsear o snapshot) e o que, no split (Fase 5),
+ * serializa para o JSON do contrato e viaja ao servico de analise em Go.
  *
- * <p>Contem os dados do trace que falhou e o caminho do snapshot JFR da janela,
- * de onde se extraem GC, alocacao, lock e amostras de CPU.
+ * <p>Os nomes dos componentes batem 1:1 com as chaves do schema
+ * {@code schema/incident-record.v1.json} — a serializacao Jackson e direta.
+ *
+ * <p>Construcao em duas etapas, refletindo a captura: {@link #initial} monta a
+ * parte barata na thread do request (escalares + exception do span); a extracao
+ * dos agregados roda fora da thread e enriquece o registro via
+ * {@link #withEvidence}.
  */
 public record IncidentRecord(
+        int schemaVersion,
         String incidentId,
         Instant capturedAt,
         String endpoint,
         IncidentType type,
-        // Identidade do incidente: (endpoint, assinatura do erro). Mesma
-        // assinatura = mesmo incidente; e a chave do dedup e, na Fase 2, da triagem.
         String fingerprint,
-        // Nome da thread que atendeu o request, para atribuir os eventos JFR da
-        // janela a ela (distinguir espera da propria thread de ruido de fundo).
         String threadName,
         long durationMs,
-        // Detalhes da exception (quando type == ERROR), extraidos do span.
-        String exceptionType,
-        String exceptionMessage,
-        String exceptionStackTrace,
-        // Caminho do snapshot JFR da janela [T-delta, T]. Pode ser null se o
-        // JFR nao estava ativo no ambiente.
-        Path jfrSnapshot
+        int occurrenceCount,
+        ExceptionInfo exception,
+        Baseline baseline,
+        TriageSignals triageSignals,
+        Dimensions dimensions,
+        JvmContext jvmContext,
+        String jfrArtifactUri
 ) {
+
+    /** Versao do contrato que este registro produz. */
+    public static final int SCHEMA_VERSION = 1;
+
+    /**
+     * Registro inicial, montado na thread do request: escalares + exception, sem
+     * agregados ainda (triageSignals null, dimensoes vazias). A evidencia JFR
+     * entra depois, fora da thread, via {@link #withEvidence}.
+     */
+    public static IncidentRecord initial(
+            String incidentId, Instant capturedAt, String endpoint, IncidentType type,
+            String fingerprint, String threadName, long durationMs, int occurrenceCount,
+            ExceptionInfo exception, Baseline baseline, JvmContext jvmContext) {
+        return new IncidentRecord(
+                SCHEMA_VERSION, incidentId, capturedAt, endpoint, type, fingerprint,
+                threadName, durationMs, occurrenceCount, exception, baseline,
+                null, Dimensions.empty(), jvmContext, null);
+    }
+
+    /** Copia com os agregados extraidos do snapshot e o ponteiro para o .jfr. */
+    public IncidentRecord withEvidence(TriageSignals signals, Dimensions dims, String jfrArtifactUri) {
+        return new IncidentRecord(
+                schemaVersion, incidentId, capturedAt, endpoint, type, fingerprint,
+                threadName, durationMs, occurrenceCount, exception, baseline,
+                signals, dims, jvmContext, jfrArtifactUri);
+    }
 }

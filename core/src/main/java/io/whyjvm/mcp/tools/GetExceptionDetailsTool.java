@@ -50,7 +50,7 @@ public final class GetExceptionDetailsTool implements Tool {
         if (record == null) {
             return ToolResult.error("Incidente nao encontrado: " + incidentId);
         }
-        if (record.exceptionType() == null) {
+        if (record.exception() == null) {
             return ToolResult.ok("O incidente " + incidentId + " nao tem exception anexada (tipo: "
                     + record.type() + ").");
         }
@@ -65,9 +65,9 @@ public final class GetExceptionDetailsTool implements Tool {
                 """.formatted(
                 record.endpoint(),
                 record.type(),
-                record.exceptionType(),
-                record.exceptionMessage(),
-                record.exceptionStackTrace()
+                record.exception().type(),
+                record.exception().message(),
+                record.exception().stackTrace()
         );
         return ToolResult.ok(body);
     }

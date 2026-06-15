@@ -16,11 +16,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Implementacao da captura via JFR programatico.
+ * Implementacao da captura via JFR programatico, em duas fases (ver
+ * {@link EvidenceCapture}).
  *
  * <p>No startup abre uma recording continua num buffer rotativo (idade maxima).
- * No disparo, {@code takeSnapshot()} tira uma foto instantanea do que esta no
- * buffer; capturamos agora, analisamos depois.
+ * No disparo, {@link #freeze} grava (congela) a janela; a leitura/agregacao do
+ * snapshot fica para {@link #extract}, fora da thread do request.
  */
 public final class JfrEvidenceCapture implements EvidenceCapture {
 
@@ -56,39 +57,50 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
     }
 
     @Override
-    public IncidentRecord capture(Incident incident) {
+    public Captured freeze(Incident incident) {
+        Instant capturedAt = Instant.now();
         String incidentId = newIncidentId(incident);
 
+        // Congela a janela AGORA, sincronamente, antes que o buffer JFR gire.
         Path jfr = dumpWindow(incidentId);
-        SpanData span = incident.span();
 
-        ExceptionDetails exc = extractException(span);
+        ExceptionDetails exc = extractException(incident.span());
+        ExceptionInfo exception = exc.isPresent()
+                ? new ExceptionInfo(exc.type(), exc.message(), exc.stackTrace())
+                : null;
 
-        IncidentRecord record = new IncidentRecord(
-                incidentId,
-                Instant.now(),
-                incident.endpoint(),
-                incident.type(),
-                incident.fingerprint(),
-                incident.threadName(),
-                incident.durationMs(),
-                exc.type(),
-                exc.message(),
-                exc.stackTrace(),
-                jfr
-        );
+        IncidentRecord record = IncidentRecord.initial(
+                incidentId, capturedAt, incident.endpoint(), incident.type(),
+                incident.fingerprint(), incident.threadName(), incident.durationMs(),
+                1, exception, null, null);
 
         store.save(record);
-        return record;
+        return new Captured(record, jfr);
+    }
+
+    @Override
+    public IncidentRecord extract(Captured captured) {
+        IncidentRecord record = captured.record();
+        Path jfr = captured.jfr();
+        if (jfr == null) {
+            return record; // JFR nao gerou evidencia desta janela.
+        }
+        try {
+            EvidenceExtractor.Result r = EvidenceExtractor.extract(jfr, record.capturedAt(), record.threadName());
+            IncidentRecord enriched = record.withEvidence(r.signals(), r.dimensions(), jfr.toString());
+            store.save(enriched);
+            return enriched;
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Falha ao extrair evidencia JFR do incidente " + record.incidentId(), e);
+            return record;
+        }
     }
 
     /**
-     * No disparo: congela a janela imediatamente, antes de chamar o agente.
-     *
-     * <p>Usa {@code rolling.dump()} em vez de {@code FlightRecorder.takeSnapshot()}:
-     * o snapshot so enxerga chunks ja rotacionados para o repositorio em disco e
-     * por isso vinha vazio logo apos o disparo. O dump forca a escrita do chunk
-     * ativo, garantindo a evidencia recente da janela.
+     * No disparo: congela a janela imediatamente. Usa {@code rolling.dump()} (e nao
+     * {@code FlightRecorder.takeSnapshot()}): o snapshot global so enxerga chunks ja
+     * rotacionados para o disco e por isso vinha vazio logo apos o disparo; o dump
+     * forca a escrita do chunk ativo, garantindo a evidencia recente da janela.
      */
     private Path dumpWindow(String incidentId) {
         if (rolling == null) {
@@ -128,5 +140,8 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
     }
 
     private record ExceptionDetails(String type, String message, String stackTrace) {
+        boolean isPresent() {
+            return type != null || message != null || stackTrace != null;
+        }
     }
 }

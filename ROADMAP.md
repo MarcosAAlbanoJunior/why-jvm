@@ -41,7 +41,7 @@ como artefato versionado + 2-3 **fixtures** de exemplo (`ERROR`, `SLOW`-por-GC,
 
 ## Track A — Java (produz o JSON)
 
-### A1 — `IncidentRecord` → agregados  *(+ Fase 5.5 #1, ver abaixo)*
+### A1 — `IncidentRecord` → agregados  *(+ Fase 5.5 #1)* ✅
 
 Hoje o record carrega o **caminho** do `.jfr` e as tools parseiam o arquivo na hora
 que o agente chama. Inverter: rodar a extração de **todas** as dimensões **uma vez,
@@ -55,7 +55,12 @@ logo após o snapshot**, e serializar o resultado no record (Jackson).
   em vez de re-parsear `.jfr`; o *modo simples* continua funcionando. Colhe valor
   antes do split inteiro aterrissar.
 - **Pronto quando:** o `IncidentRecord` serializa para o JSON do schema M0, e o
-  modo in-process produz laudo lendo do record (não do `.jfr`).
+  modo in-process produz laudo lendo do record (não do `.jfr`). ✅
+- **Entregue:** tipos de agregado em `io.whyjvm.capture` (espelham o schema);
+  `EvidenceExtractor` (uma passada no JFR, folds puros testáveis); `IncidentRecord`
+  carrega os agregados; tools leem do record; freeze síncrono + extração no executor
+  single-thread (5.5#1); `IncidentRecordSchemaTest` valida a serialização contra o
+  schema v1. Build multi-módulo verde.
 
 ### A2 — Durabilidade + transporte (padrão outbox)
 

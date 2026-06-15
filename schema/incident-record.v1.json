@@ -85,7 +85,7 @@
     },
     "triageSignals": {
       "type": ["object", "null"],
-      "description": "Numeros headline de cada dimensao numa unica passada barata (io.whyjvm.mcp.tools.JfrCorrelation.Signals). E o que a triage usa para apontar a dimensao suspeita. Null quando nao ha snapshot JFR.",
+      "description": "Numeros headline de cada dimensao numa unica passada barata (io.whyjvm.capture.TriageSignals). E o que a triage usa para apontar a dimensao suspeita. Null quando nao ha snapshot JFR.",
       "additionalProperties": false,
       "required": ["gcCount", "longestGcPauseMs", "totalGcPauseMs", "totalLockWaitMs", "totalAllocBytes"],
       "properties": {

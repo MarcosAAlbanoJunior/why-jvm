@@ -1,5 +1,6 @@
 package io.whyjvm.mcp.tools;
 
+import io.whyjvm.capture.ExceptionInfo;
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.capture.InMemoryIncidentStore;
 import io.whyjvm.mcp.ToolResult;
@@ -14,14 +15,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TriageToolTest {
 
+    private static IncidentRecord error(String id, String exceptionType, String message, String stack) {
+        return IncidentRecord.initial(
+                id, Instant.now(), "POST /checkout", IncidentType.ERROR, "fp-" + id,
+                "http-nio-exec-1", 12, 1,
+                new ExceptionInfo(exceptionType, message, stack), null, null);
+    }
+
     @Test
     void triageOfErrorPointsToExceptionDimension() {
-        IncidentRecord r = new IncidentRecord(
-                "inc-1", Instant.now(), "POST /checkout", IncidentType.ERROR, "fp-1",
-                "http-nio-exec-1", 12,
-                "java.lang.IllegalStateException", "boom",
-                "java.lang.IllegalStateException: boom\n\tat com.foo.Bar.doIt(Bar.java:42)",
-                null);
+        IncidentRecord r = error("inc-1", "java.lang.IllegalStateException", "boom",
+                "java.lang.IllegalStateException: boom\n\tat com.foo.Bar.doIt(Bar.java:42)");
 
         String report = TriageTool.report(r);
 
@@ -33,9 +37,7 @@ class TriageToolTest {
     @Test
     void executeReturnsOkForKnownIncident() {
         InMemoryIncidentStore store = new InMemoryIncidentStore();
-        store.save(new IncidentRecord(
-                "inc-2", Instant.now(), "GET /x", IncidentType.ERROR, "fp-2",
-                "http-nio-exec-2", 5, "java.lang.RuntimeException", "x", "java.lang.RuntimeException: x", null));
+        store.save(error("inc-2", "java.lang.RuntimeException", "x", "java.lang.RuntimeException: x"));
 
         TriageTool tool = new TriageTool(store);
         ToolResult result = tool.execute(Map.of("incidentId", "inc-2"));

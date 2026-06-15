@@ -2,23 +2,14 @@ package io.whyjvm.mcp.tools;
 
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.capture.IncidentStore;
-import jdk.jfr.consumer.RecordedClass;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import io.whyjvm.capture.LockContention;
 
 /**
- * Fase 3: contencao de lock na janela. Le {@code jdk.JavaMonitorEnter} e devolve
- * os call sites que mais esperaram em monitor, com o tempo total de espera.
+ * Contencao de lock na janela: os call sites que mais esperaram em monitor, com o
+ * tempo total de espera. Le o agregado ja extraido ({@link LockContention},
+ * jdk.JavaMonitorEnter); nao toca no JFR.
  */
-public final class GetLockContentionTool extends JfrDimensionTool {
-
-    private static final int TOP_N = 5;
+public final class GetLockContentionTool extends DimensionTool {
 
     public GetLockContentionTool(IncidentStore store) {
         super(store);
@@ -35,50 +26,19 @@ public final class GetLockContentionTool extends JfrDimensionTool {
     }
 
     @Override
-    protected String aggregate(IncidentRecord record, Path jfr) throws IOException {
-        List<LockWait> waits = new ArrayList<>();
-        JfrSnapshot.forEachEvent(jfr, record.capturedAt(), event -> {
-            if (!"jdk.JavaMonitorEnter".equals(event.getEventType().getName())) {
-                return;
-            }
-            String site = JfrSnapshot.topFrame(event);
-            if (site == null) {
-                return;
-            }
-            String monitor = "?";
-            if (event.hasField("monitorClass")) {
-                RecordedClass c = event.getClass("monitorClass");
-                if (c != null) {
-                    monitor = c.getName();
-                }
-            }
-            waits.add(new LockWait(site, monitor, event.getDuration().toMillis()));
-        });
-        return summarize(waits, TOP_N);
+    protected String render(IncidentRecord record) {
+        return summarize(record.dimensions().lockContention());
     }
 
-    record LockWait(String site, String monitorClass, long waitMs) {
-    }
-
-    static String summarize(List<LockWait> waits, int topN) {
-        if (waits.isEmpty()) {
+    static String summarize(LockContention lock) {
+        if (lock == null || lock.topSites().isEmpty()) {
             return "Nenhuma contencao de lock relevante na janela.";
         }
-        Map<String, Long> waitBySite = new LinkedHashMap<>();
-        Map<String, String> monitorBySite = new HashMap<>();
-        for (LockWait w : waits) {
-            waitBySite.merge(w.site(), w.waitMs(), Long::sum);
-            monitorBySite.putIfAbsent(w.site(), w.monitorClass());
-        }
-        long total = waitBySite.values().stream().mapToLong(Long::longValue).sum();
-
         StringBuilder sb = new StringBuilder("Contencao de lock na janela:\n");
-        sb.append("Espera total: %dms em %d eventos\n".formatted(total, waits.size()));
-        waitBySite.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(topN)
-                .forEach(e -> sb.append("- %s (monitor %s): %dms\n"
-                        .formatted(e.getKey(), monitorBySite.get(e.getKey()), e.getValue())));
+        sb.append("Espera total: %dms em %d eventos\n".formatted(lock.totalWaitMs(), lock.eventCount()));
+        for (LockContention.Site s : lock.topSites()) {
+            sb.append("- %s (monitor %s): %dms\n".formatted(s.site(), s.monitorClass(), s.waitMs()));
+        }
         return sb.toString();
     }
 }

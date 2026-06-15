@@ -2,18 +2,33 @@ package io.whyjvm.capture;
 
 import io.whyjvm.trigger.Incident;
 
+import java.nio.file.Path;
+
 /**
- * Congela a janela de evidencia no instante do disparo do gatilho.
+ * Captura de evidencia em duas fases, refletindo o portao 2 e o endurecimento
+ * 5.5#1:
  *
- * <p>A sutileza central: o JFR roda num buffer circular com idade maxima. Se
- * esperarmos o agente rodar para ler os eventos, o buffer ja girou e a
- * evidencia sumiu. Por isso a captura acontece <b>agora</b>, sincronamente,
- * antes de qualquer chamada ao agente.
+ * <ol>
+ *   <li>{@link #freeze} — <b>sincrono</b>, na thread do request: congela a janela
+ *       JFR imediatamente (antes que o buffer circular gire) e grava o registro
+ *       inicial. So o congelamento, barato e critico para nao perder evidencia.</li>
+ *   <li>{@link #extract} — <b>fora da thread do request</b>: parseia o snapshot
+ *       congelado, monta os agregados e enriquece o registro. E o trabalho pesado;
+ *       roda no executor single-thread do {@code TriggerService} (single-flight).</li>
+ * </ol>
  */
 public interface EvidenceCapture {
 
+    /** Resultado do congelamento: o registro inicial e o caminho do snapshot (ou null). */
+    record Captured(IncidentRecord record, Path jfr) {
+    }
+
+    /** Sincrono: congela a janela agora e grava o registro inicial. */
+    Captured freeze(Incident incident);
+
     /**
-     * Captura (congela) a evidencia do incidente e devolve o registro duravel.
+     * Fora da thread do request: extrai os agregados do snapshot congelado,
+     * enriquece e regrava o registro. Sem snapshot, devolve o registro inalterado.
      */
-    IncidentRecord capture(Incident incident);
+    IncidentRecord extract(Captured captured);
 }
