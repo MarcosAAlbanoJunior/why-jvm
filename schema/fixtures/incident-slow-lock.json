@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "2026-06-15T16:20:44Z-orders-99aa11",
+  "capturedAt": "2026-06-15T16:20:44.130Z",
+  "endpoint": "GET /orders/{id}",
+  "type": "SLOW",
+  "fingerprint": "GET /orders/{id}|SLOW",
+  "threadName": "http-nio-8080-exec-12",
+  "durationMs": 2600,
+  "occurrenceCount": 9,
+  "exception": null,
+  "baseline": {
+    "p99Ms": 120,
+    "sampleCount": 8000,
+    "thresholdMultiplier": 3.0
+  },
+  "triageSignals": {
+    "gcCount": 1,
+    "longestGcPauseMs": 18,
+    "totalGcPauseMs": 18,
+    "totalLockWaitMs": 2380,
+    "totalAllocBytes": 6291456
+  },
+  "dimensions": {
+    "gcActivity": {
+      "count": 1,
+      "totalPauseMs": 18,
+      "pauses": [
+        { "name": "G1New", "cause": "G1 Evacuation Pause", "longestPauseMs": 18, "sumPausesMs": 18 }
+      ]
+    },
+    "allocationHotspots": null,
+    "lockContention": {
+      "totalWaitMs": 2380,
+      "eventCount": 14,
+      "topSites": [
+        { "site": "io.app.InventoryCache.refresh", "monitorClass": "io.app.InventoryCache", "waitMs": 2200 },
+        { "site": "io.app.MetricsRegistry.record", "monitorClass": "java.lang.Object", "waitMs": 180 }
+      ]
+    },
+    "threadActivity": {
+      "thread": "http-nio-8080-exec-12",
+      "sleepMs": 0,
+      "sleepSite": null,
+      "ioMs": 0,
+      "lockMs": 2200,
+      "parkMs": 0,
+      "cpuSamples": 2
+    },
+    "slowTraces": null
+  },
+  "jvmContext": {
+    "heapUsedMb": 980,
+    "heapMaxMb": 2048,
+    "gcName": "G1",
+    "threadCount": 188
+  },
+  "jfrArtifactUri": "file:incidents/2026-06-15T16_20_44Z-orders-99aa11.jfr"
+}

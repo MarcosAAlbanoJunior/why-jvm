@@ -9,6 +9,9 @@ A premissa: a IA nunca lê o firehose. Ela só roda quando algo quebra, e mesmo 
 só enxerga agregados do incidente. Isso é o que torna o custo de token viável.
 
 > Visão completa e racional do design: [INSTRUCTION.md](INSTRUCTION.md).
+> Como plugar num app real (e o caminho para `-javaagent` zero-código): [INTEGRATION.md](INTEGRATION.md).
+> Contrato do split: o que o serviço de análise em Go recebe do Java e faz: [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md).
+> Ordem concreta de execução do split (Fase 5 + 5.5): [ROADMAP.md](ROADMAP.md).
 
 ## Módulos
 
@@ -66,7 +69,8 @@ o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica
 | 2 | `triage` determinística (correlação latência×GC×lock) | ✅ `TriageTool` (correlação JFR vem na Fase 3) |
 | 3 | Baseline de lentidão + tools de GC/alocação/lock | 🟢 baseline + tools JFR (GC/aloc/lock) + triagem correlacionada; falta `get_slow_traces` (captura da árvore do trace) |
 | 4 | Sinks reais (e-mail, Slack, WhatsApp) | 🟢 `EmailSink` (módulo `sinks/`, SMTP via env); Slack/WhatsApp pendentes |
-| 5 | Split MCP por HTTP (SDK `io.modelcontextprotocol.sdk:mcp`), opcional em Go | nota em `core/build.gradle.kts` |
+| 5 | Split MCP por HTTP (SDK `io.modelcontextprotocol.sdk:mcp`), agente em Go | 📄 contrato em [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md) |
+| 5.5 | Production-hardening: dump assíncrono + single-flight, dedup/baseline compartilhado (Redis), JFR config tunado | ⬜ planejado (ver INSTRUCTION §10) |
 
 ## Requisitos
 

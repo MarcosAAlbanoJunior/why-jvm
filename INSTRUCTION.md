@@ -262,7 +262,15 @@ Cada fase entrega algo que funciona de ponta a ponta.
 
 **Fase 4, o sink.** Empurre o laudo para onde você vê (WhatsApp, Slack). Vira um SRE de bolso.
 
-**Fase 5, o split de produção.** Separe o servidor MCP do agente, troque para transporte HTTP, multi-instância. Opcionalmente reescreva a camada MCP em Go.
+**Fase 5, o split de produção.** Tire a investigação de dentro do app. O lado Java (no `-javaagent`) fica só com o leve — gatilho, captura JFR e **extração dos agregados** num `IncidentRecord` JSON durável — e envia esse JSON, por HTTP, a um **serviço de análise separado escrito em Go** que serve as tools MCP (leitores finos sobre o JSON), roda o loop do agente (BYO-LLM) e despacha o laudo pros canais. A fronteira de linguagem casa com a de capacidade: ler JFR é API nativa do Java, então a extração fica no Java; orquestração, loop do agente e dispatch ficam no Go, num binário leve que **sobrevive ao OOM do app**. Contrato completo (schema do JSON, transporte, durabilidade e o que o Go precisa construir) em [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md).
+
+**Fase 5.5, o endurecimento de produção.** O circuito fecha na Fase 5, mas três coisas no caminho de captura precisam mudar antes de rodar numa frota real — trate como requisito, não otimização:
+
+1. **Dump do snapshot assíncrono + single-flight.** O `takeSnapshot()` é o *freeze* e é barato (clona referências de chunk); pode ficar síncrono na thread do request junto com a captura do nome da thread. O `dump()`+store, não — ele escreve dezenas/centenas de MB e travaria o request por centenas de ms a segundos. Jogue o dump+extração pra um executor single-thread em background, com um semáforo de 1 (single-flight) pra que uma falha multi-fingerprint não dispare vários dumps concorrentes — tempestade de I/O e de heap justo durante o incidente.
+2. **Dedup e baseline em estado compartilhado (Redis).** Em memória, cada pod tem seu cooldown e seu p99: a mesma incidência dispara uma vez **por pod**, não uma vez no cluster, e o portão 1 deixa de capar custo numa frota. O baseline em memória ainda zera a cada deploy e sofre com cardinalidade — exija nomes de span templatizados (rota, não path param cru).
+3. **JFR config tunado, não o `profile` de prateleira.** O `profile` é agressivo demais (method sampling a 10ms) e custa 2-3%+ em throughput alto. Monte um `.jfc` enxuto: GC, `ObjectAllocationSample`, `JavaMonitorEnter`, `JavaExceptionThrow` e `ExecutionSample` mais espaçado. E limite o buffer por **`maxSize` além de `maxAge`** — só idade não tampa o footprint.
+
+Fronteira de escopo que vale assumir desde já: JFR é uma JVM só. A RCA responde *"por que ESTA JVM ficou lenta/deu erro"*, com profundidade de método — **não** *"qual dos meus N microsserviços é o culpado"* quando a causa está noutro serviço. É advisor de RCA intra-JVM, com humano no loop; não ator que remedia sozinho.
 
 ---
 

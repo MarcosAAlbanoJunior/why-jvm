@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "2026-06-15T14:03:07Z-checkout-a1b2c3",
+  "capturedAt": "2026-06-15T14:03:07.812Z",
+  "endpoint": "POST /checkout",
+  "type": "ERROR",
+  "fingerprint": "POST /checkout|java.lang.NullPointerException@io.app.InvoiceBuilder.buildLineItems",
+  "threadName": "http-nio-8080-exec-7",
+  "durationMs": 42,
+  "occurrenceCount": 1,
+  "exception": {
+    "type": "java.lang.NullPointerException",
+    "message": "Cannot invoke \"io.app.Cart.items()\" because \"cart\" is null",
+    "stackTrace": "java.lang.NullPointerException: Cannot invoke \"io.app.Cart.items()\" because \"cart\" is null\n\tat io.app.InvoiceBuilder.buildLineItems(InvoiceBuilder.java:48)\n\tat io.app.CheckoutService.checkout(CheckoutService.java:31)\n\tat io.app.CheckoutController.post(CheckoutController.java:22)"
+  },
+  "baseline": {
+    "p99Ms": 380,
+    "sampleCount": 5000,
+    "thresholdMultiplier": 3.0
+  },
+  "triageSignals": null,
+  "dimensions": {
+    "gcActivity": null,
+    "allocationHotspots": null,
+    "lockContention": null,
+    "threadActivity": null,
+    "slowTraces": null
+  },
+  "jvmContext": {
+    "heapUsedMb": 1240,
+    "heapMaxMb": 4096,
+    "gcName": "G1",
+    "threadCount": 214
+  },
+  "jfrArtifactUri": null
+}

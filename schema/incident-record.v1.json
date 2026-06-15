@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://why-jvm/schema/incident-record.v1.json",
+  "title": "IncidentRecord v1",
+  "description": "Contrato de fronteira do split (Fase 5). O lado Java extrai os agregados do snapshot JFR logo apos a captura e serializa este JSON; o servico de analise em Go o consome e serve as tools MCP como leitores finos sobre ele. O Go NUNCA parseia JFR. Esta e a unica superficie compartilhada entre Java e Go — versionada por schemaVersion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "incidentId",
+    "capturedAt",
+    "endpoint",
+    "type",
+    "fingerprint",
+    "durationMs",
+    "occurrenceCount",
+    "dimensions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Versao do schema. Java e Go validam por este campo."
+    },
+    "incidentId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Id durable e idempotente do incidente. Chave de dedup no store do Go."
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Instante do takeSnapshot() (congelamento da janela)."
+    },
+    "endpoint": {
+      "type": "string",
+      "description": "Nome do span/rota templatizada (ex.: 'POST /checkout'). Nao usar path param cru — cardinalidade."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["ERROR", "SLOW"],
+      "description": "Natureza do incidente (io.whyjvm.trigger.IncidentType)."
+    },
+    "fingerprint": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identidade do incidente: (endpoint, assinatura do erro/lentidao). Chave do dedup/cooldown."
+    },
+    "threadName": {
+      "type": ["string", "null"],
+      "description": "Nome da thread que atendeu o request. Necessaria para atribuir os eventos JFR (espera vs ruido de fundo). Capturada em onEnd, na thread do request."
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Latencia do request que disparou o incidente."
+    },
+    "occurrenceCount": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Quantas ocorrencias deste fingerprint foram colapsadas pelo dedup na janela de cooldown."
+    },
+    "exception": {
+      "type": ["object", "null"],
+      "description": "Detalhes da exception, extraidos do span. Presente (nao-null) tipicamente quando type == ERROR.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "description": "Classe da exception (ex.: 'java.lang.NullPointerException')." },
+        "message": { "type": ["string", "null"], "description": "Mensagem da exception." },
+        "stackTrace": { "type": ["string", "null"], "description": "Stack trace completo, como string." }
+      }
+    },
+    "baseline": {
+      "type": ["object", "null"],
+      "description": "Comportamento normal do endpoint, para a triagem comparar (io.whyjvm.trigger.LatencyBaseline). Null quando ainda nao ha amostras suficientes.",
+      "additionalProperties": false,
+      "required": ["p99Ms", "thresholdMultiplier"],
+      "properties": {
+        "p99Ms": { "type": "number", "minimum": 0, "description": "p99 movel da latencia do endpoint." },
+        "sampleCount": { "type": "integer", "minimum": 0, "description": "Numero de amostras no baseline." },
+        "thresholdMultiplier": { "type": "number", "minimum": 1, "description": "Multiplicador do p99 que dispara SLOW (ex.: 3.0)." }
+      }
+    },
+    "triageSignals": {
+      "type": ["object", "null"],
+      "description": "Numeros headline de cada dimensao numa unica passada barata (io.whyjvm.mcp.tools.JfrCorrelation.Signals). E o que a triage usa para apontar a dimensao suspeita. Null quando nao ha snapshot JFR.",
+      "additionalProperties": false,
+      "required": ["gcCount", "longestGcPauseMs", "totalGcPauseMs", "totalLockWaitMs", "totalAllocBytes"],
+      "properties": {
+        "gcCount": { "type": "integer", "minimum": 0 },
+        "longestGcPauseMs": { "type": "integer", "minimum": 0 },
+        "totalGcPauseMs": { "type": "integer", "minimum": 0 },
+        "totalLockWaitMs": { "type": "integer", "minimum": 0 },
+        "totalAllocBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "Agregados por dimensao, ja no formato que cada tool devolve hoje em Java. Cada membro pode ser null se o JFR nao tinha aquela dimensao na janela. Portao 2: o Go entrega ao LLM so a dimensao pedida.",
+      "additionalProperties": false,
+      "properties": {
+        "gcActivity": {
+          "type": ["object", "null"],
+          "description": "Pausas de GC na janela (get_gc_activity).",
+          "additionalProperties": false,
+          "required": ["count", "totalPauseMs", "pauses"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "totalPauseMs": { "type": "integer", "minimum": 0 },
+            "pauses": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "cause", "longestPauseMs", "sumPausesMs"],
+                "properties": {
+                  "name": { "type": "string", "description": "Nome do coletor (ex.: 'G1Old')." },
+                  "cause": { "type": "string", "description": "Causa da coleta." },
+                  "longestPauseMs": { "type": "integer", "minimum": 0 },
+                  "sumPausesMs": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "allocationHotspots": {
+          "type": ["object", "null"],
+          "description": "Top call sites por bytes alocados, amostrado via jdk.ObjectAllocationSample (get_allocation_hotspots).",
+          "additionalProperties": false,
+          "required": ["totalSampledBytes", "sampleCount", "topSites"],
+          "properties": {
+            "totalSampledBytes": { "type": "integer", "minimum": 0 },
+            "sampleCount": { "type": "integer", "minimum": 0 },
+            "topSites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["site", "bytes", "pct"],
+                "properties": {
+                  "site": { "type": "string", "description": "Call site (top frame) da amostra." },
+                  "bytes": { "type": "integer", "minimum": 0, "description": "Bytes alocados amostrados neste site." },
+                  "pct": { "type": "number", "minimum": 0, "maximum": 100, "description": "Fracao do total amostrado." }
+                }
+              }
+            }
+          }
+        },
+        "lockContention": {
+          "type": ["object", "null"],
+          "description": "Call sites por tempo de espera em monitor, jdk.JavaMonitorEnter (get_lock_contention).",
+          "additionalProperties": false,
+          "required": ["totalWaitMs", "eventCount", "topSites"],
+          "properties": {
+            "totalWaitMs": { "type": "integer", "minimum": 0 },
+            "eventCount": { "type": "integer", "minimum": 0 },
+            "topSites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["site", "monitorClass", "waitMs"],
+                "properties": {
+                  "site": { "type": "string", "description": "Call site (top frame) que esperou o monitor." },
+                  "monitorClass": { "type": "string", "description": "Classe do monitor contendido." },
+                  "waitMs": { "type": "integer", "minimum": 0, "description": "Tempo total de espera somado neste site." }
+                }
+              }
+            }
+          }
+        },
+        "threadActivity": {
+          "type": ["object", "null"],
+          "description": "O que a thread do request fez na janela: espera vs trabalho (get_thread_activity). Atribuida por threadName. Null se threadName ausente.",
+          "additionalProperties": false,
+          "required": ["thread", "sleepMs", "ioMs", "lockMs", "parkMs", "cpuSamples"],
+          "properties": {
+            "thread": { "type": "string", "description": "Nome da thread atribuida (== threadName)." },
+            "sleepMs": { "type": "integer", "minimum": 0 },
+            "sleepSite": { "type": ["string", "null"], "description": "Call site do primeiro Thread.sleep, se houver." },
+            "ioMs": { "type": "integer", "minimum": 0, "description": "Espera de I/O (socket/arquivo)." },
+            "lockMs": { "type": "integer", "minimum": 0, "description": "Espera de lock (monitor) desta thread." },
+            "parkMs": { "type": "integer", "minimum": 0, "description": "Park (LockSupport/concorrencia)." },
+            "cpuSamples": { "type": "integer", "minimum": 0, "description": "Amostras de ExecutionSample desta thread." }
+          }
+        },
+        "slowTraces": {
+          "type": ["array", "null"],
+          "description": "Spans mais lentos do trace e quem dominou a latencia (get_slow_traces). PENDENTE: a captura da arvore do trace ainda nao foi implementada (Fase 3); por ora vem null.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["span", "selfMs", "totalMs"],
+            "properties": {
+              "span": { "type": "string", "description": "Nome do span." },
+              "selfMs": { "type": "integer", "minimum": 0, "description": "Tempo proprio do span." },
+              "totalMs": { "type": "integer", "minimum": 0, "description": "Tempo total (com filhos)." }
+            }
+          }
+        }
+      }
+    },
+    "jvmContext": {
+      "type": ["object", "null"],
+      "description": "Metadados da JVM no momento do incidente. Null quando nao coletados.",
+      "additionalProperties": false,
+      "properties": {
+        "heapUsedMb": { "type": "integer", "minimum": 0 },
+        "heapMaxMb": { "type": "integer", "minimum": 0 },
+        "gcName": { "type": "string" },
+        "threadCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "jfrArtifactUri": {
+      "type": ["string", "null"],
+      "description": "Ponteiro opcional para o .jfr arquivado (auditoria / re-extracao futura de uma dimensao nova). O Go NAO o usa para servir tools."
+    }
+  }
+}

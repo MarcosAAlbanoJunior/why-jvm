@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "2026-06-15T14:03:07Z-checkout-d4e5f6",
+  "capturedAt": "2026-06-15T14:03:07.900Z",
+  "endpoint": "POST /checkout",
+  "type": "SLOW",
+  "fingerprint": "POST /checkout|SLOW",
+  "threadName": "http-nio-8080-exec-3",
+  "durationMs": 4200,
+  "occurrenceCount": 5,
+  "exception": null,
+  "baseline": {
+    "p99Ms": 380,
+    "sampleCount": 5000,
+    "thresholdMultiplier": 3.0
+  },
+  "triageSignals": {
+    "gcCount": 3,
+    "longestGcPauseMs": 812,
+    "totalGcPauseMs": 1340,
+    "totalLockWaitMs": 0,
+    "totalAllocBytes": 1288490188
+  },
+  "dimensions": {
+    "gcActivity": {
+      "count": 3,
+      "totalPauseMs": 1340,
+      "pauses": [
+        { "name": "G1Old", "cause": "G1 Evacuation Pause", "longestPauseMs": 812, "sumPausesMs": 812 },
+        { "name": "G1New", "cause": "G1 Evacuation Pause", "longestPauseMs": 320, "sumPausesMs": 320 },
+        { "name": "G1New", "cause": "G1 Evacuation Pause", "longestPauseMs": 208, "sumPausesMs": 208 }
+      ]
+    },
+    "allocationHotspots": {
+      "totalSampledBytes": 1288490188,
+      "sampleCount": 1842,
+      "topSites": [
+        { "site": "io.app.InvoiceBuilder.buildLineItems", "bytes": 940572180, "pct": 73.0 },
+        { "site": "io.app.PriceFormatter.format", "bytes": 193273528, "pct": 15.0 },
+        { "site": "java.util.ArrayList.grow", "bytes": 90194313, "pct": 7.0 }
+      ]
+    },
+    "lockContention": null,
+    "threadActivity": {
+      "thread": "http-nio-8080-exec-3",
+      "sleepMs": 0,
+      "sleepSite": null,
+      "ioMs": 0,
+      "lockMs": 0,
+      "parkMs": 0,
+      "cpuSamples": 38
+    },
+    "slowTraces": null
+  },
+  "jvmContext": {
+    "heapUsedMb": 3640,
+    "heapMaxMb": 4096,
+    "gcName": "G1",
+    "threadCount": 221
+  },
+  "jfrArtifactUri": "file:incidents/2026-06-15T14_03_07Z-checkout-d4e5f6.jfr"
+}
