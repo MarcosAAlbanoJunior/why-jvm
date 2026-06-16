@@ -61,6 +61,40 @@ class IncidentRecordSchemaTest {
         assertValid(err);
     }
 
+    @Test
+    void errorRecordWithCodeContextMatchesSchema() throws Exception {
+        IncidentRecord err = IncidentRecord.initial(
+                "POST-checkout-a1b2c3", Instant.parse("2026-06-15T14:03:07.812Z"),
+                "POST /checkout", IncidentType.ERROR, "POST /checkout|NPE",
+                "http-nio-8080-exec-7", 42, 1,
+                new ExceptionInfo("java.lang.NullPointerException", "Cannot invoke \"...tier()\"",
+                        "java.lang.NullPointerException\n\tat io.app.checkout.CustomerService.calculateDiscount(CustomerService.java:20)"),
+                null, null);
+
+        IncidentRecord withCode = err.withCodeContext(new CodeContext(
+                "io.app.checkout.CustomerService.calculateDiscount", "CustomerService.java", 20,
+                CodeContext.Origin.SOURCE_DIR,
+                "    public double calculateDiscount(String customerId) {\n"
+                        + "        Customer customer = repository.findById(customerId);\n"
+                        + "        return switch (customer.tier()) {",
+                18));
+
+        assertValid(withCode);
+    }
+
+    @Test
+    void errorRecordWithUnavailableCodeContextMatchesSchema() throws Exception {
+        IncidentRecord err = IncidentRecord.initial(
+                "POST-checkout-a1b2c3", Instant.parse("2026-06-15T14:03:07.812Z"),
+                "POST /checkout", IncidentType.ERROR, "POST /checkout|NPE",
+                "http-nio-8080-exec-7", 42, 1, null, null, null);
+
+        IncidentRecord withCode = err.withCodeContext(CodeContext.unavailable(
+                "io.app.checkout.CustomerService.calculateDiscount", "CustomerService.java", 20));
+
+        assertValid(withCode);
+    }
+
     private static void assertValid(IncidentRecord record) throws Exception {
         JsonNode node = IncidentRecordJson.mapper().readTree(IncidentRecordJson.toJson(record));
         Set<ValidationMessage> errors = SCHEMA.validate(node);

@@ -32,7 +32,8 @@ public record IncidentRecord(
         TriageSignals triageSignals,
         Dimensions dimensions,
         JvmContext jvmContext,
-        String jfrArtifactUri
+        String jfrArtifactUri,
+        CodeContext codeContext
 ) {
 
     /** Versao do contrato que este registro produz. */
@@ -50,7 +51,7 @@ public record IncidentRecord(
         return new IncidentRecord(
                 SCHEMA_VERSION, incidentId, capturedAt, endpoint, type, fingerprint,
                 threadName, durationMs, occurrenceCount, exception, baseline,
-                null, Dimensions.empty(), jvmContext, null);
+                null, Dimensions.empty(), jvmContext, null, null);
     }
 
     /** Copia com os agregados extraidos do snapshot e o ponteiro para o .jfr. */
@@ -58,6 +59,14 @@ public record IncidentRecord(
         return new IncidentRecord(
                 schemaVersion, incidentId, capturedAt, endpoint, type, fingerprint,
                 threadName, durationMs, occurrenceCount, exception, baseline,
-                signals, dims, jvmContext, jfrArtifactUri);
+                signals, dims, jvmContext, jfrArtifactUri, codeContext);
+    }
+
+    /** Copia com o contexto de codigo do frame suspeito (Tier 2, resolvido na captura). */
+    public IncidentRecord withCodeContext(CodeContext codeContext) {
+        return new IncidentRecord(
+                schemaVersion, incidentId, capturedAt, endpoint, type, fingerprint,
+                threadName, durationMs, occurrenceCount, exception, baseline,
+                triageSignals, dimensions, jvmContext, jfrArtifactUri, codeContext);
     }
 }
