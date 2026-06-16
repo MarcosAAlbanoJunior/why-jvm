@@ -112,37 +112,44 @@ public final class TriageTool implements Tool {
                     "request terminou com status de erro, mas sem exception anexada ao span.",
                     "exception (sem stack)", "get_exception_details");
         }
-        // SLOW: escolhe a dimensao JFR que mais pesa na latencia.
+        // SLOW: as tools de GC/alocacao sao JVM-WIDE (somam TODAS as threads) e nao
+        // sabem se o sinal esta na thread do request. get_thread_activity e a UNICA
+        // que filtra pela thread — entao e SEMPRE o primeiro drill no SLOW. A
+        // dimensao mais alta vira so um candidato a confirmar (ou descartar, se a
+        // thread so esperou).
         if (sig == null) {
             return new Hypothesis(
                     "sem snapshot JFR — a captura nao gerou evidencia desta janela.",
                     "indefinida (sem JFR)", "(sem evidencia para drill-down)");
         }
         long dur = Math.max(1, r.durationMs());
+        String candidate = slowCandidate(sig, dur);
+        return new Hypothesis(
+                "latencia alta (" + dur + "ms). Sinais JVM-wide (somam TODAS as threads, podem ser ruido "
+                        + "de fundo): " + candidate + ". Confirme PRIMEIRO se a thread do request esperou "
+                        + "(causa externa) ou trabalhou (JVM) antes de culpar qualquer dimensao.",
+                "a confirmar via thread_activity (candidato: " + candidate + ")",
+                "get_thread_activity");
+    }
+
+    /**
+     * Aponta a dimensao JVM-wide mais alta como hipotese a confirmar — nao como
+     * veredito (pode ser ruido de outra thread; so a thread do request distingue).
+     */
+    private static String slowCandidate(TriageSignals sig, long dur) {
         double share = dur * SHARE_THRESHOLD;
-        if (sig.longestGcPauseMs() >= sig.totalLockWaitMs() && sig.longestGcPauseMs() >= share) {
-            return new Hypothesis(
-                    "pausa de GC de " + sig.longestGcPauseMs() + "ms na janela (~"
-                            + pct(sig.longestGcPauseMs(), dur) + "% da latencia).",
-                    "gc", "get_gc_activity");
+        if (sig.longestGcPauseMs() >= share && sig.longestGcPauseMs() >= sig.totalLockWaitMs()) {
+            return "gc (maior pausa " + sig.longestGcPauseMs() + "ms, ~"
+                    + pct(sig.longestGcPauseMs(), dur) + "% da latencia)";
         }
-        if (sig.totalLockWaitMs() > sig.longestGcPauseMs() && sig.totalLockWaitMs() >= share) {
-            return new Hypothesis(
-                    "contencao de lock somou " + sig.totalLockWaitMs() + "ms de espera (~"
-                            + pct(sig.totalLockWaitMs(), dur) + "% da latencia).",
-                    "lock", "get_lock_contention");
+        if (sig.totalLockWaitMs() >= share) {
+            return "lock (espera total " + sig.totalLockWaitMs() + "ms, ~"
+                    + pct(sig.totalLockWaitMs(), dur) + "% da latencia)";
         }
         if (sig.totalAllocBytes() > ALLOC_BYTES_THRESHOLD) {
-            return new Hypothesis(
-                    "alocacao alta na janela (" + (sig.totalAllocBytes() / (1024 * 1024))
-                            + " MB amostrados); pode estar pressionando o GC.",
-                    "alocacao", "get_allocation_hotspots");
+            return "alocacao (" + (sig.totalAllocBytes() / (1024 * 1024)) + " MB amostrados, JVM-wide)";
         }
-        return new Hypothesis(
-                "latencia alta sem sinal forte de GC/lock/alocacao JVM-wide — confirme o que a thread do "
-                        + "request fez (espera vs trabalho) antes de concluir; nao culpe alocacao/GC triviais.",
-                "a confirmar (espera vs trabalho)",
-                "get_thread_activity");
+        return "nenhuma dimensao JVM com sinal forte (provavel causa externa: espera/IO/downstream)";
     }
 
     private static String gcLine(TriageSignals s) {
