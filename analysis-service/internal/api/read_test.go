@@ -70,7 +70,7 @@ func TestRunToolHTTP(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rr.Code, rr.Body)
 	}
-	if !strings.Contains(rr.Body.String(), "Dimensao suspeita: gc") {
+	if !strings.Contains(rr.Body.String(), "Proximo passo sugerido: get_thread_activity") {
 		t.Fatalf("triage inesperada:\n%s", rr.Body)
 	}
 

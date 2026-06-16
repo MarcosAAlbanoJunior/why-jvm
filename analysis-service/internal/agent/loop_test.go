@@ -65,9 +65,10 @@ func TestStubLoopConvergesOnSlowGc(t *testing.T) {
 	if laudo.Confianca != "baixa" {
 		t.Fatalf("stub deveria dar confianca baixa: %q", laudo.Confianca)
 	}
-	// O stub segue a triagem (get_gc_activity) e usa a evidencia coletada.
-	if len(laudo.Evidencia) == 0 || !strings.Contains(strings.Join(laudo.Evidencia, " "), "GC") {
-		t.Fatalf("esperava evidencia de GC, veio %v", laudo.Evidencia)
+	// A triagem roteia SLOW para get_thread_activity primeiro; o stub segue e usa
+	// a evidencia da thread do request (espera vs trabalho).
+	if len(laudo.Evidencia) == 0 || !strings.Contains(strings.Join(laudo.Evidencia, " "), "Atividade da thread") {
+		t.Fatalf("esperava evidencia de thread_activity, veio %v", laudo.Evidencia)
 	}
 }
 

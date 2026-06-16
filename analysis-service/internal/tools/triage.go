@@ -77,30 +77,37 @@ func hypothesize(r *incident.Record, sig *incident.TriageSignals) hypothesis {
 			"sem snapshot JFR — a captura nao gerou evidencia desta janela.",
 			"indefinida (sem JFR)", "(sem evidencia para drill-down)"}
 	}
+	// SLOW: as tools de GC/alocacao sao JVM-WIDE (somam TODAS as threads) e nao
+	// sabem se o sinal esta na thread do request. get_thread_activity e a UNICA que
+	// filtra pela thread — entao e SEMPRE o primeiro drill no SLOW. A dimensao mais
+	// alta vira so um candidato a confirmar (ou descartar, se a thread so esperou).
 	dur := max(r.DurationMs, 1)
-	share := float64(dur) * shareThreshold
-	switch {
-	case sig.LongestGcPauseMs >= sig.TotalLockWaitMs && float64(sig.LongestGcPauseMs) >= share:
-		return hypothesis{
-			fmt.Sprintf("pausa de GC de %dms na janela (~%d%% da latencia).",
-				sig.LongestGcPauseMs, pct(sig.LongestGcPauseMs, dur)),
-			"gc", "get_gc_activity"}
-	case sig.TotalLockWaitMs > sig.LongestGcPauseMs && float64(sig.TotalLockWaitMs) >= share:
-		return hypothesis{
-			fmt.Sprintf("contencao de lock somou %dms de espera (~%d%% da latencia).",
-				sig.TotalLockWaitMs, pct(sig.TotalLockWaitMs, dur)),
-			"lock", "get_lock_contention"}
-	case sig.TotalAllocBytes > allocBytesThreshold:
-		return hypothesis{
-			fmt.Sprintf("alocacao alta na janela (%d MB amostrados); pode estar pressionando o GC.",
-				sig.TotalAllocBytes/(1024*1024)),
-			"alocacao", "get_allocation_hotspots"}
-	default:
-		return hypothesis{
-			"latencia alta sem sinal forte de GC/lock/alocacao JVM-wide — confirme o que a thread do " +
-				"request fez (espera vs trabalho) antes de concluir; nao culpe alocacao/GC triviais.",
-			"a confirmar (espera vs trabalho)", "get_thread_activity"}
+	candidate := slowCandidate(sig, dur)
+	return hypothesis{
+		fmt.Sprintf("latencia alta (%dms). Sinais JVM-wide (somam TODAS as threads, podem ser ruido de "+
+			"fundo): %s. Confirme PRIMEIRO se a thread do request esperou (causa externa) ou trabalhou "+
+			"(JVM) antes de culpar qualquer dimensao.", dur, candidate),
+		"a confirmar via thread_activity (candidato: " + candidate + ")",
+		"get_thread_activity",
 	}
+}
+
+// slowCandidate aponta a dimensao JVM-wide mais alta como hipotese a confirmar —
+// nao como veredito (pode ser ruido de outra thread).
+func slowCandidate(sig *incident.TriageSignals, dur int64) string {
+	share := float64(dur) * shareThreshold
+	if float64(sig.LongestGcPauseMs) >= share && sig.LongestGcPauseMs >= sig.TotalLockWaitMs {
+		return fmt.Sprintf("gc (maior pausa %dms, ~%d%% da latencia)",
+			sig.LongestGcPauseMs, pct(sig.LongestGcPauseMs, dur))
+	}
+	if float64(sig.TotalLockWaitMs) >= share {
+		return fmt.Sprintf("lock (espera total %dms, ~%d%% da latencia)",
+			sig.TotalLockWaitMs, pct(sig.TotalLockWaitMs, dur))
+	}
+	if sig.TotalAllocBytes > allocBytesThreshold {
+		return fmt.Sprintf("alocacao (%d MB amostrados, JVM-wide)", sig.TotalAllocBytes/(1024*1024))
+	}
+	return "nenhuma dimensao JVM com sinal forte (provavel causa externa: espera/IO/downstream)"
 }
 
 func gcLine(s *incident.TriageSignals) string {

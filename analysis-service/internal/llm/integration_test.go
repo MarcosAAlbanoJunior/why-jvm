@@ -44,7 +44,7 @@ func TestInvestigateEndToEndWithClaudeClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := api.NewServer(st, "seg", provider)
+	srv := api.NewServer(st, api.Options{Token: "seg", Provider: provider})
 
 	// ingest da fixture pelo servidor real
 	raw := readFixture(t, "incident-slow-gc.json")

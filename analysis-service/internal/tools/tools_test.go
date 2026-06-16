@@ -71,20 +71,22 @@ func assertContains(t *testing.T, s, sub string) {
 
 func TestTriagePointsToRightDimension(t *testing.T) {
 	cases := []struct {
-		fixture   string
-		suspect   string
-		nextStep  string
+		fixture  string
+		contains []string
 	}{
-		{"incident-error.json", "Dimensao suspeita: exception", "get_exception_details"},
-		{"incident-slow-gc.json", "Dimensao suspeita: gc", "get_gc_activity"},
-		{"incident-slow-lock.json", "Dimensao suspeita: lock", "get_lock_contention"},
+		// ERROR -> exception. SLOW -> SEMPRE get_thread_activity primeiro (confirma
+		// espera vs trabalho); a dimensao JVM-wide vira so candidato.
+		{"incident-error.json", []string{"Dimensao suspeita: exception", "Proximo passo sugerido: get_exception_details"}},
+		{"incident-slow-gc.json", []string{"candidato: gc", "Proximo passo sugerido: get_thread_activity"}},
+		{"incident-slow-lock.json", []string{"candidato: lock", "Proximo passo sugerido: get_thread_activity"}},
 	}
 	for _, c := range cases {
 		t.Run(c.fixture, func(t *testing.T) {
 			reg, id := setup(t, c.fixture)
 			out := call(t, reg, id, "triage")
-			assertContains(t, out, c.suspect)
-			assertContains(t, out, c.nextStep)
+			for _, want := range c.contains {
+				assertContains(t, out, want)
+			}
 		})
 	}
 }
