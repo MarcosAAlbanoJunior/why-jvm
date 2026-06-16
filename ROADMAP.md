@@ -106,9 +106,11 @@ referência da Claude API para o cliente LLM — não chutar model id.
   calling sobre o `Registry`, teto de tool calls, `parseLaudo`/`extractJSON`),
   `Laudo`. Endpoint `POST /v1/incidents/{id}/investigate`. Testes: convergência
   com stub, teto de turnos, erro de provider, parse. `go vet`/build/test verdes.
-- **Falta na fatia do provider real:** implementar `Provider` para Gemini/Claude
-  (BYOK via env) — aí sim consultar a referência da Claude API. O `Stub` mantém o
-  circuito fechado e testável sem key até lá.
+- **Provider real (BYO-LLM) ✅:** `internal/llm` com clientes HTTP diretos pra
+  **Claude** (`/v1/messages`, `claude-opus-4-8`, via referência da Claude API) e
+  **Gemini** (`generateContent`, `gemini-2.5-flash`, wire format conferido na doc
+  oficial), selecionados por `FromEnv` (`WHYJVM_LLM_PROVIDER`). Testes mapeiam o
+  wire dos dois contra httptest (sem rede). O `Stub` segue como default sem key.
 
 ### B4 — Sinks
 

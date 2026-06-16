@@ -14,7 +14,7 @@ import java.util.logging.Logger;
  * <pre>
  *   LLM_API_KEY   (obrigatoria; sem ela, cai no StubLlmProvider)
  *   LLM_PROVIDER  default "gemini"
- *   LLM_MODEL     default "gemini-2.0-flash"
+ *   LLM_MODEL     default "gemini-2.5-flash"
  * </pre>
  */
 public final class LlmProviders {
@@ -38,7 +38,7 @@ public final class LlmProviders {
             return null;
         }
         String resolvedProvider = orDefault(provider, "gemini");
-        String resolvedModel = orDefault(model, "gemini-2.0-flash");
+        String resolvedModel = orDefault(model, "gemini-2.5-flash");
 
         ChatModel chatModel = switch (resolvedProvider.toLowerCase()) {
             case "gemini" -> GoogleAiGeminiChatModel.builder()

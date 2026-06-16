@@ -84,9 +84,29 @@ func (l *Loop) toolSpecs() []ToolSpec {
 	catalog := l.registry.List()
 	specs := make([]ToolSpec, 0, len(catalog))
 	for _, t := range catalog {
-		specs = append(specs, ToolSpec{Name: t.Name, Description: t.Description})
+		specs = append(specs, ToolSpec{
+			Name:        t.Name,
+			Description: t.Description,
+			InputSchema: incidentIDSchema(),
+		})
 	}
 	return specs
+}
+
+// incidentIDSchema e o schema de entrada comum a todas as tools: so o incidentId.
+// O loop e por incidente, entao a execucao usa sempre o id do incidente corrente,
+// independentemente do que o modelo passe nos argumentos.
+func incidentIDSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"incidentId": map[string]any{
+				"type":        "string",
+				"description": "Id do incidente a investigar.",
+			},
+		},
+		"required": []string{"incidentId"},
+	}
 }
 
 func initialContext(rec *incident.Record) string {

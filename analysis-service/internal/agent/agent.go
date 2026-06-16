@@ -30,10 +30,12 @@ type ToolCall struct {
 	Arguments map[string]any
 }
 
-// ToolSpec descreve uma tool para o provider (nome + descricao).
+// ToolSpec descreve uma tool para o provider: nome, descricao e o schema de
+// entrada (JSON Schema), necessario para function calling real.
 type ToolSpec struct {
 	Name        string
 	Description string
+	InputSchema map[string]any
 }
 
 // Response e a decisao de um turno: ou pede tools, ou entrega o texto final.
