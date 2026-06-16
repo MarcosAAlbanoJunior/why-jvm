@@ -14,6 +14,7 @@ public record Laudo(
         String causaRaiz,
         List<String> evidencia,
         String confianca,
-        String correcaoSugerida
+        String correcaoSugerida,
+        List<String> hipotesesDescartadas
 ) {
 }
