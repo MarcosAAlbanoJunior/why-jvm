@@ -11,7 +11,7 @@ do agente (BYO-LLM) e despacha o laudo pros canais.
 **Princípio:** o Go **nunca parseia JFR**. Só consome o JSON de agregados já
 mastigado pelo Java. Por isso o binário é leve e sobrevive ao OOM do app.
 
-## Status: B1 (ingest + store) e B2 (tools)
+## Status: B1 (ingest + store), B2 (tools), B3 (loop do agente)
 
 Implementado:
 
@@ -24,19 +24,23 @@ Implementado:
   (`triage`, `get_exception_details`, `get_thread_activity`, `get_gc_activity`,
   `get_allocation_hotspots`, `get_lock_contention`, `get_endpoint_baseline`). O
   texto é portado das tools Java, para o agente receber o contexto consistente.
-  Expostas via HTTP (modo interativo); o agente, no modo autônomo, chamará o
-  `tools.Registry` in-process.
+  Expostas via HTTP (modo interativo); o agente chama o `tools.Registry` in-process.
+- **Loop do agente** (B3): function calling sobre o catálogo até convergir num
+  `Laudo` estruturado, com teto de tool calls (anti-loop de token). Porta o
+  `AgentLoop` do `core`. Provider é a fronteira de IA (BYOK); por ora só o
+  `Stub` determinístico (sem key) — o provider real (Gemini/Claude) é a próxima fatia.
 
 | Método + rota | O que faz |
 |---|---|
 | `POST /v1/incidents` | Ingere um incidente (auth, idempotente) → `202` |
 | `GET /v1/incidents/{id}` | JSON cru do incidente persistido |
 | `GET /v1/incidents/{id}/tools/{tool}` | Roda uma tool e devolve o agregado em texto |
+| `POST /v1/incidents/{id}/investigate` | Roda o loop do agente → `Laudo` JSON |
 | `GET /v1/tools` | Catálogo de tools (nome + descrição) |
 | `GET /healthz` | Liveness/readiness |
 
-Pendente (próximas fases): loop do agente BYO-LLM (B3), sinks/canais (B4),
-servidor MCP stdio/HTTP para o modo interativo, store em Postgres.
+Pendente (próximas fases): provider LLM real (BYO-LLM), sinks/canais (B4),
+investigação automática no ingest, servidor MCP stdio/HTTP, store em Postgres.
 
 ## Rodar
 
@@ -66,7 +70,8 @@ cmd/analysis-service/   # main: lê config, sobe o servidor
 internal/incident/      # Record + nested (structs = schema v1)
 internal/store/         # Store interface + FileStore (disco, idempotente)
 internal/tools/         # catálogo de tools: leitores finos do JSON (texto)
-internal/api/           # ingest + leitura/tools + healthz (ServeMux)
+internal/agent/         # loop de function calling + Provider (Stub) + Laudo
+internal/api/           # ingest + leitura/tools + investigate + healthz
 internal/config/        # config por env
 ```
 

@@ -95,11 +95,20 @@ campo. Espelha os nomes do `McpToolRegistry` atual.
   `GET /v1/tools`). Testes alimentam as fixtures e conferem cada tool. `go vet`/
   build/test verdes.
 
-### B3 — Loop do agente
+### B3 — Loop do agente ✅
 
 Provider **BYO-LLM** + function calling + saída `Laudo` (confiança + evidência).
 Mais arriscado e sensível a token, mas **não bloqueia o ingest**. Conferir a
 referência da Claude API para o cliente LLM — não chutar model id.
+
+- **Entregue:** pacote `internal/agent` (porte do `AgentLoop`/`StubLlmProvider`):
+  `Provider` (fronteira de IA, BYOK), `Stub` determinístico, `Loop` (function
+  calling sobre o `Registry`, teto de tool calls, `parseLaudo`/`extractJSON`),
+  `Laudo`. Endpoint `POST /v1/incidents/{id}/investigate`. Testes: convergência
+  com stub, teto de turnos, erro de provider, parse. `go vet`/build/test verdes.
+- **Falta na fatia do provider real:** implementar `Provider` para Gemini/Claude
+  (BYOK via env) — aí sim consultar a referência da Claude API. O `Stub` mantém o
+  circuito fechado e testável sem key até lá.
 
 ### B4 — Sinks
 
