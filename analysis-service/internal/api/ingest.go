@@ -41,6 +41,9 @@ func (h *handlers) ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Modo autonomo: dispara a investigacao async (no-op se desligado).
+	h.enqueue(rec.IncidentID)
+
 	writeJSON(w, http.StatusAccepted, map[string]string{
 		"incidentId": rec.IncidentID,
 		"status":     "accepted",

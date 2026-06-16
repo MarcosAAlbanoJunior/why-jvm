@@ -10,6 +10,7 @@ import (
 	"github.com/whyjvm/analysis-service/internal/api"
 	"github.com/whyjvm/analysis-service/internal/config"
 	"github.com/whyjvm/analysis-service/internal/llm"
+	"github.com/whyjvm/analysis-service/internal/sink"
 	"github.com/whyjvm/analysis-service/internal/store"
 )
 
@@ -30,9 +31,14 @@ func main() {
 		log.Fatalf("provider LLM: %v", err)
 	}
 
-	srv := api.NewServer(st, cfg.IngestToken, provider)
-	log.Printf("analysis-service ouvindo em %s (store=%s, provider=%s)",
-		cfg.Addr, cfg.StoreDir, provider.Name())
+	srv := api.NewServer(st, api.Options{
+		Token:           cfg.IngestToken,
+		Provider:        provider,
+		Sink:            sink.NewLog(),
+		AutoInvestigate: cfg.AutoInvestigate,
+	})
+	log.Printf("analysis-service ouvindo em %s (store=%s, provider=%s, auto_investigate=%v)",
+		cfg.Addr, cfg.StoreDir, provider.Name(), cfg.AutoInvestigate)
 	if err := http.ListenAndServe(cfg.Addr, srv); err != nil {
 		log.Fatalf("servidor encerrou: %v", err)
 	}

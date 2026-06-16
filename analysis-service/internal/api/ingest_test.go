@@ -27,7 +27,7 @@ func newTestServer(t *testing.T) (http.Handler, store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewServer(st, testToken, agent.NewStub()), st
+	return NewServer(st, Options{Token: testToken, Provider: agent.NewStub()}), st
 }
 
 // repoRoot sobe a partir do working dir do teste ate achar o schema canonico.

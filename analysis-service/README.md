@@ -33,10 +33,14 @@ Implementado:
   (`generateContent`, model `gemini-2.5-flash`), selecionados por env via
   `FromEnv`. Default: `Stub` determinístico (sem key). A key vem do ambiente — o
   serviço nunca a guarda.
+- **Modo autônomo** (B4): ao receber um incidente, um worker **single-thread**
+  investiga sozinho (bounded — um por vez, custo/rate-limit do LLM) e despacha o
+  laudo num `Sink`. `LogSink` hoje (laudo no log); Slack/e-mail/WhatsApp depois.
+  Liga/desliga por `WHYJVM_AUTO_INVESTIGATE` (default ligado).
 
 | Método + rota | O que faz |
 |---|---|
-| `POST /v1/incidents` | Ingere um incidente (auth, idempotente) → `202` |
+| `POST /v1/incidents` | Ingere um incidente (auth, idempotente) → `202`. No modo autônomo, dispara a investigação async |
 | `GET /v1/incidents/{id}` | JSON cru do incidente persistido |
 | `GET /v1/incidents/{id}/tools/{tool}` | Roda uma tool e devolve o agregado em texto |
 | `POST /v1/incidents/{id}/investigate` | Roda o loop do agente → `Laudo` JSON |
@@ -70,6 +74,7 @@ curl -i -X POST http://localhost:8080/v1/incidents \
 | `WHYJVM_LLM_MODEL` | _(default do provider)_ | Override do model (`claude-opus-4-8` / `gemini-2.5-flash`). |
 | `ANTHROPIC_API_KEY` | _(vazio)_ | Key do Claude (BYOK), exigida se `WHYJVM_LLM_PROVIDER=claude`. |
 | `GEMINI_API_KEY` | _(vazio)_ | Key do Gemini (BYOK), exigida se `WHYJVM_LLM_PROVIDER=gemini`. |
+| `WHYJVM_AUTO_INVESTIGATE` | `true` | Modo autônomo: investiga ao receber o incidente. `false` = só `/investigate` manual. |
 
 ## Layout
 
@@ -80,7 +85,8 @@ internal/store/         # Store interface + FileStore (disco, idempotente)
 internal/tools/         # catálogo de tools: leitores finos do JSON (texto)
 internal/agent/         # loop de function calling + Provider (Stub) + Laudo
 internal/llm/           # providers reais BYO-LLM: Claude + Gemini (HTTP) + FromEnv
-internal/api/           # ingest + leitura/tools + investigate + healthz
+internal/sink/          # destino do laudo: Sink + LogSink (Slack/e-mail depois)
+internal/api/           # ingest + leitura/tools + investigate + worker autônomo
 internal/config/        # config por env
 ```
 
