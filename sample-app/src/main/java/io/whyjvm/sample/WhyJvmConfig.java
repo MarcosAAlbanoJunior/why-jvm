@@ -5,6 +5,7 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.whyjvm.WhyJvm;
 import io.whyjvm.agent.LlmProvider;
+import io.whyjvm.forward.HttpIncidentForwarder;
 import io.whyjvm.llm.LlmProviders;
 import io.whyjvm.sink.LoggingSink;
 import io.whyjvm.sink.Sink;
@@ -41,14 +42,27 @@ public class WhyJvmConfig {
                 .incidentDir(Path.of("incidents"))
                 .sink(emailSink(env));
 
-        LlmProvider provider = LlmProviders.create(
-                env.getProperty("llm.provider"),
-                env.getProperty("llm.api-key"),
-                env.getProperty("llm.model"));
-        if (provider != null) {
-            builder.llmProvider(provider);
+        // Modo split (Fase 5): se whyjvm.forward.url (WHYJVM_FORWARD_URL) estiver
+        // setada, o Java encaminha o incidente para o servico de analise em Go e
+        // NAO roda o agente in-process. Sem ela, cai no modo simples (agente local).
+        String forwardUrl = env.getProperty("whyjvm.forward.url");
+        if (forwardUrl != null && !forwardUrl.isBlank()) {
+            builder.forwarder(new HttpIncidentForwarder(
+                    forwardUrl,
+                    env.getProperty("whyjvm.forward.token"),
+                    Path.of("incidents", "outbox")));
+            LOG.info("Modo split: incidentes vao para " + forwardUrl
+                    + " (o agente roda no servico Go; o Java nao usa key de LLM).");
         } else {
-            LOG.info("llm.api-key (ou LLM_API_KEY) ausente; usando StubLlmProvider (laudo placeholder).");
+            LlmProvider provider = LlmProviders.create(
+                    env.getProperty("llm.provider"),
+                    env.getProperty("llm.api-key"),
+                    env.getProperty("llm.model"));
+            if (provider != null) {
+                builder.llmProvider(provider);
+            } else {
+                LOG.info("llm.api-key (ou LLM_API_KEY) ausente; usando StubLlmProvider (laudo placeholder).");
+            }
         }
         return builder.build();
     }

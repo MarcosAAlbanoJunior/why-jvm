@@ -62,13 +62,21 @@ logo após o snapshot**, e serializar o resultado no record (Jackson).
   single-thread (5.5#1); `IncidentRecordSchemaTest` valida a serialização contra o
   schema v1. Build multi-módulo verde.
 
-### A2 — Durabilidade + transporte (padrão outbox)
+### A2 — Durabilidade + transporte (padrão outbox) ✅
 
 Persistir o JSON local **antes** do POST; enviar ao Go por HTTP com retry/backoff a
 partir do disco; idempotência por `incidentId`; tratar `202`.
 
 - **Pronto quando:** com o serviço Go derrubado, gerar um incidente e subir o Go →
-  o incidente chega (não se perdeu).
+  o incidente chega (não se perdeu). ✅
+- **Entregue:** `io.whyjvm.forward.IncidentForwarder` + `HttpIncidentForwarder`
+  (JDK `java.net.http`, zero dep nova): outbox (grava o JSON antes do POST) +
+  varredor de reenvio em background; serializa via `IncidentRecordJson`. O
+  `TriggerService` encaminha quando há forwarder (split) ou roda o agente
+  in-process (modo simples). `WhyJvm.Builder.forwarder(...)` + config no sample-app
+  (`whyjvm.forward.url`/`token`). Teste com `com.sun.net.httpserver`: POST
+  bem-formado em 202; Go fora → outbox persiste; Go volta → flush reenvia. Build
+  multi-módulo verde.
 
 ---
 

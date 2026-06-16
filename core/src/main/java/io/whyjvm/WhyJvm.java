@@ -8,6 +8,7 @@ import io.whyjvm.capture.EvidenceCapture;
 import io.whyjvm.capture.InMemoryIncidentStore;
 import io.whyjvm.capture.IncidentStore;
 import io.whyjvm.capture.JfrEvidenceCapture;
+import io.whyjvm.forward.IncidentForwarder;
 import io.whyjvm.mcp.McpToolRegistry;
 import io.whyjvm.mcp.tools.GetAllocationHotspotsTool;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
@@ -59,6 +60,7 @@ public final class WhyJvm {
         private int maxToolCalls = 8;
         private Duration cooldown = Duration.ofMinutes(10);
         private double slowFactor = 3.0;
+        private IncidentForwarder forwarder;
 
         public Builder incidentDir(Path dir) {
             this.incidentDir = dir;
@@ -99,6 +101,16 @@ public final class WhyJvm {
             return this;
         }
 
+        /**
+         * Modo split (Fase 5): encaminha o incidente para o servico de analise em
+         * Go em vez de rodar o agente in-process. Sem forwarder, fica no modo
+         * simples (agente + sink locais).
+         */
+        public Builder forwarder(IncidentForwarder forwarder) {
+            this.forwarder = forwarder;
+            return this;
+        }
+
         public WhyJvm build() {
             IncidentStore incidentStore = (store != null) ? store : new InMemoryIncidentStore();
 
@@ -115,7 +127,7 @@ public final class WhyJvm {
             //              do trace (filhos), nao so o span que disparou.
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
-            TriggerService triggerService = new TriggerService(capture, agent, sink);
+            TriggerService triggerService = new TriggerService(capture, agent, sink, forwarder);
             IncidentDeduplicator dedup = new IncidentDeduplicator(cooldown);
             LatencyBaseline baseline = new LatencyBaseline(slowFactor);
 
