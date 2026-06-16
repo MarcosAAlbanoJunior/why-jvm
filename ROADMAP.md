@@ -146,7 +146,7 @@ Cada item tem um gatilho diferente:
 | Item 5.5 | Quando | Por quê |
 |---|---|---|
 | **#1 Dump assíncrono + single-flight** | **Junto com A1** (não depois) | A1 já adiciona trabalho ao caminho pós-snapshot, e isso **não pode** rodar na thread do request. O executor single-thread em background + semáforo de 1 é pré-requisito do A1, não add-on. |
-| **#3 JFR config tunado (`.jfc`)** | Tarefa curta avulsa, **antes do teste de carga** | Baixo risco, alto retorno em overhead. `profile` de prateleira é agressivo demais. |
+| **#3 JFR config tunado** ✅ | Tarefa curta avulsa, **antes do teste de carga** | Baixo risco, alto retorno em overhead. `profile` de prateleira é agressivo demais. **Entregue:** `JfrEvidenceCapture` abre a recording sem config de prateleira e habilita só os eventos que o `EvidenceExtractor` lê (GC, alloc sample, monitor, execução a 20ms, esperas sleep/park/socket/file com threshold 10ms); buffer limitado por `maxSize` (50MB) **e** `maxAge`. Teste confere os eventos ligados. |
 | **#2 Dedup/baseline em Redis** | **Por último, só antes de ir pra frota** | Só importa em multi-pod (senão a mesma incidência dispara uma vez por pod). Pra demo/single-instance não é necessário — não pague a complexidade cedo. |
 
 ---
@@ -158,7 +158,7 @@ Cada item tem um gatilho diferente:
 3. **B1** — ingest + store no Go *(em paralelo com A1, contra fixtures)*
 4. **A2** — durabilidade + POST
 5. **B2 → B3 → B4** — tools, agente, sinks
-6. **5.5#3** — JFR config tunado (antes de medir carga)
+6. **5.5#3** ✅ — JFR config tunado (antes de medir carga)
 7. **M-int** — integração ponta a ponta
 8. **5.5#2** — Redis, só quando for pra frota
 

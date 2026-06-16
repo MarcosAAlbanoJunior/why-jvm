@@ -4,7 +4,6 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.whyjvm.trigger.Incident;
-import jdk.jfr.Configuration;
 import jdk.jfr.Recording;
 
 import java.nio.file.Files;
@@ -32,6 +31,12 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
     private static final AttributeKey<String> EXC_MESSAGE = AttributeKey.stringKey("exception.message");
     private static final AttributeKey<String> EXC_STACK = AttributeKey.stringKey("exception.stacktrace");
 
+    /** Idade e tamanho maximos do buffer rotativo (5.5#3: limita por ambos). */
+    private static final Duration MAX_AGE = Duration.ofMinutes(5);
+    private static final long MAX_SIZE_BYTES = 50L * 1024 * 1024;
+    /** Threshold das esperas: abaixo disto e ruido (e overhead). */
+    private static final Duration WAIT_THRESHOLD = Duration.ofMillis(10);
+
     private final Path incidentDir;
     private final IncidentStore store;
     private Recording rolling;
@@ -42,18 +47,40 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
         startRollingRecording();
     }
 
-    /** Recording continua, configurada uma vez. Buffer rotativo de 5 minutos. */
+    /** Recording continua, configurada uma vez. Buffer rotativo por idade E tamanho. */
     private void startRollingRecording() {
         try {
-            Configuration config = Configuration.getConfiguration("profile");
-            rolling = new Recording(config);
-            rolling.setMaxAge(Duration.ofMinutes(5));
+            rolling = new Recording(); // sem config de prateleira: habilita so o necessario
+            enableEvidenceEvents(rolling);
+            rolling.setMaxAge(MAX_AGE);
+            rolling.setMaxSize(MAX_SIZE_BYTES);
             rolling.setToDisk(true);
             rolling.start();
-            LOG.info("JFR rolling recording iniciada (maxAge=5min).");
+            LOG.info("JFR rolling recording iniciada (config enxuta, maxAge=5min, maxSize=50MB).");
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Nao foi possivel iniciar JFR; evidencia seguira sem snapshot.", e);
         }
+    }
+
+    /**
+     * Config enxuta (5.5#3): habilita SO os eventos que o {@link EvidenceExtractor}
+     * le, em vez do firehose do config {@code profile} (method sampling a 10ms,
+     * centenas de eventos). Corta overhead em throughput alto. Pacote: visivel para
+     * teste.
+     */
+    static void enableEvidenceEvents(Recording r) {
+        // Dimensoes JVM-wide.
+        r.enable("jdk.GarbageCollection");
+        r.enable("jdk.ObjectAllocationSample").withStackTrace();
+        r.enable("jdk.JavaMonitorEnter").withStackTrace().withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.ExecutionSample").withPeriod(Duration.ofMillis(20)); // mais espacado que o profile (10ms)
+        // Atividade da thread do request: espera (sleep/I/O/park) vs trabalho (CPU).
+        r.enable("jdk.ThreadSleep").withStackTrace().withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.ThreadPark").withStackTrace().withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.SocketRead").withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.SocketWrite").withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.FileRead").withThreshold(WAIT_THRESHOLD);
+        r.enable("jdk.FileWrite").withThreshold(WAIT_THRESHOLD);
     }
 
     @Override
