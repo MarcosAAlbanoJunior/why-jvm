@@ -35,8 +35,10 @@ Implementado:
   serviço nunca a guarda.
 - **Modo autônomo** (B4): ao receber um incidente, um worker **single-thread**
   investiga sozinho (bounded — um por vez, custo/rate-limit do LLM) e despacha o
-  laudo num `Sink`. `LogSink` hoje (laudo no log); Slack/e-mail/WhatsApp depois.
-  Liga/desliga por `WHYJVM_AUTO_INVESTIGATE` (default ligado).
+  laudo num `Sink`. `LogSink` (default) e **Slack via webhook** (`internal/sink`,
+  formato `{"text":...}`, compatível com Slack/Mattermost); e-mail/WhatsApp depois.
+  Liga/desliga a auto-investigação por `WHYJVM_AUTO_INVESTIGATE` (default ligado);
+  escolhe o canal por `WHYJVM_SINK`.
 
 | Método + rota | O que faz |
 |---|---|
@@ -75,6 +77,8 @@ curl -i -X POST http://localhost:8080/v1/incidents \
 | `ANTHROPIC_API_KEY` | _(vazio)_ | Key do Claude (BYOK), exigida se `WHYJVM_LLM_PROVIDER=claude`. |
 | `GEMINI_API_KEY` | _(vazio)_ | Key do Gemini (BYOK), exigida se `WHYJVM_LLM_PROVIDER=gemini`. |
 | `WHYJVM_AUTO_INVESTIGATE` | `true` | Modo autônomo: investiga ao receber o incidente. `false` = só `/investigate` manual. |
+| `WHYJVM_SINK` | `log` | Canal do laudo: `log` \| `slack`. |
+| `WHYJVM_SLACK_WEBHOOK_URL` | _(vazio)_ | URL do incoming webhook, exigida se `WHYJVM_SINK=slack`. |
 
 ## Layout
 

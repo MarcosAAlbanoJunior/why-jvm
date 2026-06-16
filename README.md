@@ -13,6 +13,7 @@ só enxerga agregados do incidente. Isso é o que torna o custo de token viável
 > Contrato do split: o que o serviço de análise em Go recebe do Java e faz: [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md).
 > Ordem concreta de execução do split (Fase 5 + 5.5): [ROADMAP.md](ROADMAP.md).
 
+
 ## Módulos
 
 | Módulo | O que é |
