@@ -11,7 +11,7 @@ do agente (BYO-LLM) e despacha o laudo pros canais.
 **Princípio:** o Go **nunca parseia JFR**. Só consome o JSON de agregados já
 mastigado pelo Java. Por isso o binário é leve e sobrevive ao OOM do app.
 
-## Status: B1 (ingest + store), B2 (tools), B3 (loop do agente)
+## Status: B1 (ingest + store), B2 (tools), B3 (loop do agente) + providers reais
 
 Implementado:
 
@@ -27,8 +27,12 @@ Implementado:
   Expostas via HTTP (modo interativo); o agente chama o `tools.Registry` in-process.
 - **Loop do agente** (B3): function calling sobre o catálogo até convergir num
   `Laudo` estruturado, com teto de tool calls (anti-loop de token). Porta o
-  `AgentLoop` do `core`. Provider é a fronteira de IA (BYOK); por ora só o
-  `Stub` determinístico (sem key) — o provider real (Gemini/Claude) é a próxima fatia.
+  `AgentLoop` do `core`.
+- **Providers reais BYO-LLM** (`internal/llm`): clientes HTTP diretos (sem SDK)
+  pra **Claude** (`/v1/messages`, model `claude-opus-4-8`) e **Gemini**
+  (`generateContent`, model `gemini-2.5-flash`), selecionados por env via
+  `FromEnv`. Default: `Stub` determinístico (sem key). A key vem do ambiente — o
+  serviço nunca a guarda.
 
 | Método + rota | O que faz |
 |---|---|
@@ -62,6 +66,10 @@ curl -i -X POST http://localhost:8080/v1/incidents \
 | `WHYJVM_ADDR` | `:8080` | Endereço de escuta. |
 | `WHYJVM_INGEST_TOKEN` | _(vazio)_ | Bearer exigido no ingest. **Vazio = sem auth (só dev).** |
 | `WHYJVM_STORE_DIR` | `incidents-store` | Diretório do store em disco. |
+| `WHYJVM_LLM_PROVIDER` | `stub` | Provider do agente: `stub` \| `claude` \| `gemini`. |
+| `WHYJVM_LLM_MODEL` | _(default do provider)_ | Override do model (`claude-opus-4-8` / `gemini-2.5-flash`). |
+| `ANTHROPIC_API_KEY` | _(vazio)_ | Key do Claude (BYOK), exigida se `WHYJVM_LLM_PROVIDER=claude`. |
+| `GEMINI_API_KEY` | _(vazio)_ | Key do Gemini (BYOK), exigida se `WHYJVM_LLM_PROVIDER=gemini`. |
 
 ## Layout
 
@@ -71,6 +79,7 @@ internal/incident/      # Record + nested (structs = schema v1)
 internal/store/         # Store interface + FileStore (disco, idempotente)
 internal/tools/         # catálogo de tools: leitores finos do JSON (texto)
 internal/agent/         # loop de function calling + Provider (Stub) + Laudo
+internal/llm/           # providers reais BYO-LLM: Claude + Gemini (HTTP) + FromEnv
 internal/api/           # ingest + leitura/tools + investigate + healthz
 internal/config/        # config por env
 ```

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/whyjvm/analysis-service/internal/agent"
 	"github.com/whyjvm/analysis-service/internal/store"
 )
 
@@ -26,7 +27,7 @@ func newTestServer(t *testing.T) (http.Handler, store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewServer(st, testToken), st
+	return NewServer(st, testToken, agent.NewStub()), st
 }
 
 // repoRoot sobe a partir do working dir do teste ate achar o schema canonico.

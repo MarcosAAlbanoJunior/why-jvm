@@ -9,6 +9,7 @@ import (
 
 	"github.com/whyjvm/analysis-service/internal/api"
 	"github.com/whyjvm/analysis-service/internal/config"
+	"github.com/whyjvm/analysis-service/internal/llm"
 	"github.com/whyjvm/analysis-service/internal/store"
 )
 
@@ -24,8 +25,14 @@ func main() {
 		log.Println("AVISO: WHYJVM_INGEST_TOKEN vazio — ingest SEM auth (apenas dev).")
 	}
 
-	srv := api.NewServer(st, cfg.IngestToken)
-	log.Printf("analysis-service ouvindo em %s (store=%s)", cfg.Addr, cfg.StoreDir)
+	provider, err := llm.FromEnv()
+	if err != nil {
+		log.Fatalf("provider LLM: %v", err)
+	}
+
+	srv := api.NewServer(st, cfg.IngestToken, provider)
+	log.Printf("analysis-service ouvindo em %s (store=%s, provider=%s)",
+		cfg.Addr, cfg.StoreDir, provider.Name())
 	if err := http.ListenAndServe(cfg.Addr, srv); err != nil {
 		log.Fatalf("servidor encerrou: %v", err)
 	}

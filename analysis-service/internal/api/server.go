@@ -19,13 +19,13 @@ type handlers struct {
 }
 
 // NewServer monta o roteador com os endpoints do servico. O provider do agente e
-// o Stub por enquanto (modo autonomo com LLM real entra numa fase seguinte).
-func NewServer(st store.Store, token string) http.Handler {
+// injetado (BYO-LLM): stub, Claude ou Gemini, escolhido por env via llm.FromEnv.
+func NewServer(st store.Store, token string, provider agent.Provider) http.Handler {
 	reg := tools.NewRegistry(st)
 	h := &handlers{
 		store: st,
 		tools: reg,
-		agent: agent.NewLoop(agent.NewStub(), reg, 0),
+		agent: agent.NewLoop(provider, reg, 0),
 		token: token,
 	}
 	mux := http.NewServeMux()
