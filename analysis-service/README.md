@@ -11,18 +11,32 @@ do agente (BYO-LLM) e despacha o laudo pros canais.
 **Princípio:** o Go **nunca parseia JFR**. Só consome o JSON de agregados já
 mastigado pelo Java. Por isso o binário é leve e sobrevive ao OOM do app.
 
-## Status: B1 — ingest + store
+## Status: B1 (ingest + store) e B2 (tools)
 
-Implementado nesta fase:
+Implementado:
 
 - `POST /v1/incidents` — recebe o `IncidentRecord` JSON, autentica (bearer),
   valida (`schemaVersion`, campos-chave), persiste **idempotente** por
   `incidentId` e responde `202`.
 - `GET /healthz` — liveness/readiness.
 - Store em disco **lossless** (guarda os bytes JSON crus), idempotente.
+- **Tools como leitores finos** do JSON (B2): catálogo espelhando o `core`
+  (`triage`, `get_exception_details`, `get_thread_activity`, `get_gc_activity`,
+  `get_allocation_hotspots`, `get_lock_contention`, `get_endpoint_baseline`). O
+  texto é portado das tools Java, para o agente receber o contexto consistente.
+  Expostas via HTTP (modo interativo); o agente, no modo autônomo, chamará o
+  `tools.Registry` in-process.
 
-Pendente (próximas fases): tools MCP como leitores do JSON (B2), loop do agente
-BYO-LLM (B3), sinks/canais (B4), store em Postgres.
+| Método + rota | O que faz |
+|---|---|
+| `POST /v1/incidents` | Ingere um incidente (auth, idempotente) → `202` |
+| `GET /v1/incidents/{id}` | JSON cru do incidente persistido |
+| `GET /v1/incidents/{id}/tools/{tool}` | Roda uma tool e devolve o agregado em texto |
+| `GET /v1/tools` | Catálogo de tools (nome + descrição) |
+| `GET /healthz` | Liveness/readiness |
+
+Pendente (próximas fases): loop do agente BYO-LLM (B3), sinks/canais (B4),
+servidor MCP stdio/HTTP para o modo interativo, store em Postgres.
 
 ## Rodar
 
@@ -51,7 +65,8 @@ curl -i -X POST http://localhost:8080/v1/incidents \
 cmd/analysis-service/   # main: lê config, sobe o servidor
 internal/incident/      # Record + nested (structs = schema v1)
 internal/store/         # Store interface + FileStore (disco, idempotente)
-internal/api/           # ingest + healthz (ServeMux, routing por método)
+internal/tools/         # catálogo de tools: leitores finos do JSON (texto)
+internal/api/           # ingest + leitura/tools + healthz (ServeMux)
 internal/config/        # config por env
 ```
 
