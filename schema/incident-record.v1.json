@@ -216,6 +216,20 @@
     "jfrArtifactUri": {
       "type": ["string", "null"],
       "description": "Ponteiro opcional para o .jfr arquivado (auditoria / re-extracao futura de uma dimensao nova). O Go NAO o usa para servir tools."
+    },
+    "codeContext": {
+      "type": ["object", "null"],
+      "description": "Contexto de codigo do frame de topo da app no stack da exception (Tier 2, code-aware RCA). Resolvido pelo agente in-JVM na captura — o Go so renderiza, nunca acessa o fonte. snippet null quando origin == UNAVAILABLE (fonte indisponivel em runtime; jamais fabricado).",
+      "additionalProperties": false,
+      "required": ["symbol", "file", "line", "origin"],
+      "properties": {
+        "symbol": { "type": "string", "description": "Simbolo qualificado do frame de topo da app (ex.: 'io.app.checkout.CustomerService.calculateDiscount')." },
+        "file": { "type": "string", "description": "Arquivo fonte do frame (ex.: 'CustomerService.java')." },
+        "line": { "type": "integer", "minimum": 0, "description": "Linha do frame no stack trace." },
+        "origin": { "type": "string", "enum": ["SOURCE_JAR", "SOURCE_DIR", "UNAVAILABLE"], "description": "De onde o fonte foi resolvido; UNAVAILABLE quando nao ha fonte em runtime." },
+        "snippet": { "type": ["string", "null"], "description": "Janela de linhas do fonte ao redor de 'line'. Null quando origin == UNAVAILABLE." },
+        "snippetStartLine": { "type": "integer", "minimum": 0, "description": "Numero (1-based) da primeira linha do snippet. 0 quando sem snippet." }
+      }
     }
   }
 }
