@@ -21,12 +21,13 @@ func TestWebhookPostsSlackPayload(t *testing.T) {
 	defer srv.Close()
 
 	laudo := agent.Laudo{
-		Endpoint:         "POST /checkout",
-		Tipo:             "SLOW",
-		CausaRaiz:        "pausa de GC prolongada",
-		Confianca:        "alta",
-		Evidencia:        []string{"GC 812ms (~19% da latencia)"},
-		CorrecaoSugerida: "otimizar alocacao",
+		Endpoint:             "POST /checkout",
+		Tipo:                 "SLOW",
+		CausaRaiz:            "pausa de GC prolongada",
+		Confianca:            "alta",
+		Evidencia:            []string{"GC 812ms (~19% da latencia)"},
+		HipotesesDescartadas: []string{"Contencao de lock / deadlock: sem espera relevante em monitor"},
+		CorrecaoSugerida:     "otimizar alocacao",
 	}
 	if err := NewWebhook(srv.URL).Publish(laudo); err != nil {
 		t.Fatal(err)
@@ -38,7 +39,8 @@ func TestWebhookPostsSlackPayload(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &payload); err != nil {
 		t.Fatalf("payload nao e JSON: %v\n%s", err, got)
 	}
-	for _, want := range []string{"POST /checkout", "SLOW", "pausa de GC prolongada", "GC 812ms", "otimizar alocacao"} {
+	for _, want := range []string{"POST /checkout", "SLOW", "pausa de GC prolongada", "GC 812ms",
+		"Hipoteses descartadas", "sem espera relevante em monitor", "otimizar alocacao"} {
 		if !strings.Contains(payload.Text, want) {
 			t.Fatalf("text do webhook sem %q:\n%s", want, payload.Text)
 		}

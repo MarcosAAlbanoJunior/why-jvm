@@ -12,6 +12,7 @@ só enxerga agregados do incidente. Isso é o que torna o custo de token viável
 > Como plugar num app real (e o caminho para `-javaagent` zero-código): [INTEGRATION.md](INTEGRATION.md).
 > Contrato do split: o que o serviço de análise em Go recebe do Java e faz: [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md).
 > Ordem concreta de execução do split (Fase 5 + 5.5): [ROADMAP.md](ROADMAP.md).
+> Profundidade do RCA (hipóteses descartadas, code-aware, slow-traces): [RCA-DEPTH.md](RCA-DEPTH.md).
 
 
 ## Módulos

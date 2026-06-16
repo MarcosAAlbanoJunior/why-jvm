@@ -65,10 +65,14 @@ func (l *Loop) Investigate(rec *incident.Record) (Laudo, error) {
 			return Laudo{}, fmt.Errorf("provider %s falhou: %w", l.provider.Name(), err)
 		}
 		if !resp.WantsTools() {
-			return parseLaudo(resp.FinalText, rec), nil
+			laudo := parseLaudo(resp.FinalText, rec)
+			laudo.HipotesesDescartadas = differential(rec) // diferencial deterministico
+			return laudo, nil
 		}
 		if used >= l.maxToolCalls {
-			return turnLimitLaudo(rec), nil
+			laudo := turnLimitLaudo(rec)
+			laudo.HipotesesDescartadas = differential(rec)
+			return laudo, nil
 		}
 		ctx = append(ctx, assistantToolCalls(resp.ToolCalls))
 		for _, call := range resp.ToolCalls {

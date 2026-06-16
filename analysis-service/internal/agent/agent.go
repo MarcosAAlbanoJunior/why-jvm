@@ -67,6 +67,9 @@ type Laudo struct {
 	Evidencia        []string `json:"evidencia"`
 	Confianca        string   `json:"confianca"`
 	CorrecaoSugerida string   `json:"correcao_sugerida"`
+	// HipotesesDescartadas e o diagnostico diferencial DETERMINISTICO (do triage,
+	// nao do LLM): o que NAO e a causa, cada item ancorado num sinal medido.
+	HipotesesDescartadas []string `json:"hipoteses_descartadas,omitempty"`
 }
 
 // Helpers de construcao de mensagem (espelham Message do core).

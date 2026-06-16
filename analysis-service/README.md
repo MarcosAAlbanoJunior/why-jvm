@@ -33,6 +33,10 @@ Implementado:
   (`generateContent`, model `gemini-2.5-flash`), selecionados por env via
   `FromEnv`. Default: `Stub` determinístico (sem key). A key vem do ambiente — o
   serviço nunca a guarda.
+- **Hipóteses descartadas** no laudo (Tier 1 do [`../RCA-DEPTH.md`](../RCA-DEPTH.md)):
+  diagnóstico diferencial **determinístico** (calculado dos sinais, não do LLM) — o
+  que NÃO é a causa, cada item ancorado num número. Codifica JVM-wide vs thread do
+  request (alocação/CPU só são causa se a thread trabalhou). Renderizado nos sinks.
 - **Modo autônomo** (B4): ao receber um incidente, um worker **single-thread**
   investiga sozinho (bounded — um por vez, custo/rate-limit do LLM) e despacha o
   laudo num `Sink`. `LogSink` (default) e **Slack via webhook** (`internal/sink`,
