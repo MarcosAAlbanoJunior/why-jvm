@@ -4,8 +4,10 @@
 package main
 
 import (
+	"cmp"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/whyjvm/analysis-service/internal/api"
 	"github.com/whyjvm/analysis-service/internal/config"
@@ -31,14 +33,19 @@ func main() {
 		log.Fatalf("provider LLM: %v", err)
 	}
 
+	snk, err := sink.FromEnv()
+	if err != nil {
+		log.Fatalf("sink: %v", err)
+	}
+
 	srv := api.NewServer(st, api.Options{
 		Token:           cfg.IngestToken,
 		Provider:        provider,
-		Sink:            sink.NewLog(),
+		Sink:            snk,
 		AutoInvestigate: cfg.AutoInvestigate,
 	})
-	log.Printf("analysis-service ouvindo em %s (store=%s, provider=%s, auto_investigate=%v)",
-		cfg.Addr, cfg.StoreDir, provider.Name(), cfg.AutoInvestigate)
+	log.Printf("analysis-service ouvindo em %s (store=%s, provider=%s, sink=%s, auto_investigate=%v)",
+		cfg.Addr, cfg.StoreDir, provider.Name(), cmp.Or(os.Getenv("WHYJVM_SINK"), "log"), cfg.AutoInvestigate)
 	if err := http.ListenAndServe(cfg.Addr, srv); err != nil {
 		log.Fatalf("servidor encerrou: %v", err)
 	}

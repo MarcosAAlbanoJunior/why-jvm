@@ -124,13 +124,12 @@ referência da Claude API para o cliente LLM — não chutar model id.
 
 Dispatch pros canais: log → e-mail → Slack → WhatsApp.
 
-- **Entregue (modo autônomo + log):** `internal/sink` (`Sink` + `LogSink`) e a
-  **auto-investigação no ingest** — worker single-thread que investiga cada
-  incidente recebido (bounded) e publica o laudo no Sink. `WHYJVM_AUTO_INVESTIGATE`
-  (default ligado). Fecha o demo hands-free: `/demo/error` no Java → laudo no log
-  do Go, sem curl.
-- **Falta:** sinks de canal reais (e-mail/Slack/WhatsApp) — espelhar o `EmailSink`
-  do `sinks/` Java e webhooks.
+- **Entregue (modo autônomo + log + Slack):** `internal/sink` (`Sink` + `LogSink` +
+  `Webhook` formato Slack/Mattermost) e a **auto-investigação no ingest** — worker
+  single-thread que investiga cada incidente recebido (bounded) e publica no Sink.
+  `WHYJVM_AUTO_INVESTIGATE` (default ligado) + `WHYJVM_SINK` (`log`|`slack`). Fecha o
+  demo hands-free: `/demo/error` no Java → laudo no Slack, sem curl.
+- **Falta:** e-mail (SMTP) e WhatsApp (Evolution) — mesmo padrão do `Webhook`.
 
 ---
 
