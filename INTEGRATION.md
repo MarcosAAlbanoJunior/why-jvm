@@ -58,6 +58,24 @@ qualquer JDK 21 sem flag extra. `jdk.ObjectAllocationSample` precisa de JDK 16+.
 
 ---
 
+### Modo split: encaminhar pro serviço Go (Fase 5, já funciona como lib)
+
+Por padrão o agente roda **in-process** (modo simples). Para ligar o **split** —
+o Java só captura e **encaminha** o incidente pro serviço de análise em Go (que
+investiga e despacha) — basta apontar a URL do serviço:
+
+```
+WHYJVM_FORWARD_URL=http://localhost:8090   # serviço de análise Go
+WHYJVM_FORWARD_TOKEN=<mesmo do ingest>     # opcional (bearer)
+```
+
+Com `WHYJVM_FORWARD_URL` setada, o `WhyJvm.builder()` recebe um
+`HttpIncidentForwarder` e o Java **não roda o agente nem usa key de LLM** — só
+serializa o `IncidentRecord` e POSTa em `/v1/incidents`. **Padrão outbox:** grava
+o JSON localmente antes do POST; se o Go estiver fora, o incidente fica no outbox
+(`incidents/outbox/`) e um varredor reenvia depois. Reenvio é seguro: o Go dedupa
+por `incidentId`.
+
 ## 3. Objetivo: zero-código via `-javaagent` (a fazer)
 
 Escrever um `-javaagent` do zero (com `premain` + instrumentar HTTP/JDBC via
