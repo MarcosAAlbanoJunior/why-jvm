@@ -84,10 +84,16 @@ primeiro, Postgres depois), `/healthz`, resposta `202`.
   `/healthz`. Testes carregam as fixtures reais do `schema/` (202, idempotência,
   401, 400). Consumidor fechado contra o contrato do M0.
 
-### B2 — Tools como leitores finos
+### B2 — Tools como leitores finos ✅
 
 Catálogo MCP lendo **fatias do JSON** guardado. Sem JFR — é quase mapeamento de
 campo. Espelha os nomes do `McpToolRegistry` atual.
+
+- **Entregue:** pacote `internal/tools` (`Registry` + renders portando o texto das
+  tools Java: triage, exception, gc, alloc, lock, thread, baseline). Exposto via
+  HTTP (`GET /v1/incidents/{id}/tools/{tool}`, `GET /v1/incidents/{id}`,
+  `GET /v1/tools`). Testes alimentam as fixtures e conferem cada tool. `go vet`/
+  build/test verdes.
 
 ### B3 — Loop do agente
 
