@@ -53,6 +53,12 @@ func formatSlack(l agent.Laudo) string {
 			fmt.Fprintf(&sb, "• %s\n", e)
 		}
 	}
+	if len(l.HipotesesDescartadas) > 0 {
+		sb.WriteString("*Hipoteses descartadas:*\n")
+		for _, h := range l.HipotesesDescartadas {
+			fmt.Fprintf(&sb, "✓ %s\n", h)
+		}
+	}
 	if l.CorrecaoSugerida != "" {
 		fmt.Fprintf(&sb, "*Correcao sugerida:* %s", l.CorrecaoSugerida)
 	}

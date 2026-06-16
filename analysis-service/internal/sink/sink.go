@@ -34,6 +34,12 @@ func (*Log) Publish(l agent.Laudo) error {
 			sb.WriteString("  - " + e + "\n")
 		}
 	}
+	if len(l.HipotesesDescartadas) > 0 {
+		sb.WriteString("descartadas:\n")
+		for _, h := range l.HipotesesDescartadas {
+			sb.WriteString("  ✓ " + h + "\n")
+		}
+	}
 	if l.CorrecaoSugerida != "" {
 		sb.WriteString("correcao:   " + l.CorrecaoSugerida + "\n")
 	}
