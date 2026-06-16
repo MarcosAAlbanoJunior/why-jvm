@@ -76,6 +76,9 @@ public final class EmailSink implements Sink {
         String evidencia = l.evidencia().isEmpty()
                 ? "(sem evidencia listada)"
                 : l.evidencia().stream().map(e -> "  - " + e).collect(Collectors.joining("\n"));
+        String descartadas = l.hipotesesDescartadas().isEmpty()
+                ? "(nenhuma)"
+                : l.hipotesesDescartadas().stream().map(h -> "  + " + h).collect(Collectors.joining("\n"));
         return """
                 Incidente em %s (%s)
 
@@ -85,12 +88,15 @@ public final class EmailSink implements Sink {
                 Evidencia:
                 %s
 
+                Hipoteses descartadas:
+                %s
+
                 Correcao sugerida:
                 %s
 
                 --
                 why-jvm — RCA acionado por gatilho
                 """.formatted(
-                l.endpoint(), l.tipo(), l.causaRaiz(), l.confianca(), evidencia, l.correcaoSugerida());
+                l.endpoint(), l.tipo(), l.causaRaiz(), l.confianca(), evidencia, descartadas, l.correcaoSugerida());
     }
 }

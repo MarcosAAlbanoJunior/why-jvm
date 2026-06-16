@@ -18,7 +18,8 @@ class EmailSinkTest {
             "Pausa de GC full disparada por alocacao em buildLineItems",
             List.of("Pausa de GC de 812ms", "buildLineItems = 73% das alocacoes"),
             "alta",
-            "Reutilizar um buffer elimina a alocacao quadratica");
+            "Reutilizar um buffer elimina a alocacao quadratica",
+            List.of("Contencao de lock / deadlock: sem espera relevante em monitor"));
 
     @Test
     void subjectSummarizesIncident() {
@@ -33,12 +34,14 @@ class EmailSinkTest {
         assertTrue(body.contains("Causa raiz: Pausa de GC full"), body);
         assertTrue(body.contains("  - Pausa de GC de 812ms"), body);
         assertTrue(body.contains("  - buildLineItems = 73% das alocacoes"), body);
+        assertTrue(body.contains("Hipoteses descartadas:"), body);
+        assertTrue(body.contains("  + Contencao de lock / deadlock"), body);
         assertTrue(body.contains("Reutilizar um buffer"), body);
     }
 
     @Test
     void bodyHandlesEmptyEvidence() {
-        Laudo semEvidencia = new Laudo("GET /x", "ERROR", "NPE", List.of(), "baixa", "");
+        Laudo semEvidencia = new Laudo("GET /x", "ERROR", "NPE", List.of(), "baixa", "", List.of());
         assertTrue(EmailSink.renderBody(semEvidencia).contains("(sem evidencia listada)"));
     }
 }

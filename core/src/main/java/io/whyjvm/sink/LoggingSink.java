@@ -17,12 +17,13 @@ public final class LoggingSink implements Sink {
         LOG.info("""
 
                 ===== LAUDO RCA =====
-                Endpoint : %s
-                Tipo     : %s
-                Causa    : %s
-                Confianca: %s
-                Evidencia: %s
-                Correcao : %s
+                Endpoint   : %s
+                Tipo       : %s
+                Causa      : %s
+                Confianca  : %s
+                Evidencia  : %s
+                Descartadas: %s
+                Correcao   : %s
                 =====================
                 """.formatted(
                 laudo.endpoint(),
@@ -30,6 +31,7 @@ public final class LoggingSink implements Sink {
                 laudo.causaRaiz(),
                 laudo.confianca(),
                 laudo.evidencia(),
+                laudo.hipotesesDescartadas(),
                 laudo.correcaoSugerida()
         ));
     }
