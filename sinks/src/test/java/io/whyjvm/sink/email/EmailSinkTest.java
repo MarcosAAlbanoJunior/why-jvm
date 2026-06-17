@@ -1,6 +1,7 @@
 package io.whyjvm.sink.email;
 
 import io.whyjvm.agent.Laudo;
+import io.whyjvm.capture.CodeContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,7 +20,19 @@ class EmailSinkTest {
             List.of("Pausa de GC de 812ms", "buildLineItems = 73% das alocacoes"),
             "alta",
             "Reutilizar um buffer elimina a alocacao quadratica",
-            List.of("Contencao de lock / deadlock: sem espera relevante em monitor"));
+            List.of("Contencao de lock / deadlock: sem espera relevante em monitor"),
+            null);
+
+    private static final Laudo LAUDO_COM_CODIGO = new Laudo(
+            "POST /checkout", "ERROR",
+            "NPE: findById retornou null e calculateDiscount nao validou",
+            List.of("customer is null"),
+            "alta",
+            "Validar o retorno de findById antes de acessar tier()",
+            List.of(),
+            new CodeContext(
+                    "io.whyjvm.sample.checkout.CustomerService.calculateDiscount", "CustomerService.java", 20,
+                    CodeContext.Origin.SOURCE_DIR, "return switch (customer.tier()) {", 20));
 
     @Test
     void subjectSummarizesIncident() {
@@ -40,8 +53,24 @@ class EmailSinkTest {
     }
 
     @Test
+    void bodyOmitsCodeSectionWhenNoCodeContext() {
+        // LAUDO (SLOW, sem codeContext) nao deve trazer a secao de codigo.
+        assertTrue(!EmailSink.renderBody(LAUDO).contains("Codigo do metodo suspeito"),
+                EmailSink.renderBody(LAUDO));
+    }
+
+    @Test
+    void bodyCarriesSuspectMethodSourceWhenPresent() {
+        String body = EmailSink.renderBody(LAUDO_COM_CODIGO);
+
+        assertTrue(body.contains("Codigo do metodo suspeito:"), body);
+        assertTrue(body.contains("CustomerService.java:20"), body);
+        assertTrue(body.contains("> 20 | return switch (customer.tier()) {"), body);
+    }
+
+    @Test
     void bodyHandlesEmptyEvidence() {
-        Laudo semEvidencia = new Laudo("GET /x", "ERROR", "NPE", List.of(), "baixa", "", List.of());
+        Laudo semEvidencia = new Laudo("GET /x", "ERROR", "NPE", List.of(), "baixa", "", List.of(), null);
         assertTrue(EmailSink.renderBody(semEvidencia).contains("(sem evidencia listada)"));
     }
 }

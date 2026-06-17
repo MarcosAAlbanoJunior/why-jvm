@@ -14,6 +14,9 @@ public final class LoggingSink implements Sink {
 
     @Override
     public void publish(Laudo laudo) {
+        String codigo = laudo.codeContext() == null
+                ? "(sem contexto de codigo)"
+                : laudo.codeContext().render();
         LOG.info("""
 
                 ===== LAUDO RCA =====
@@ -24,6 +27,9 @@ public final class LoggingSink implements Sink {
                 Evidencia  : %s
                 Descartadas: %s
                 Correcao   : %s
+
+                Codigo:
+                %s
                 =====================
                 """.formatted(
                 laudo.endpoint(),
@@ -32,7 +38,8 @@ public final class LoggingSink implements Sink {
                 laudo.confianca(),
                 laudo.evidencia(),
                 laudo.hipotesesDescartadas(),
-                laudo.correcaoSugerida()
+                laudo.correcaoSugerida(),
+                codigo
         ));
     }
 }

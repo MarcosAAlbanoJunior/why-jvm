@@ -1,5 +1,7 @@
 package io.whyjvm.agent;
 
+import io.whyjvm.capture.CodeContext;
+
 import java.util.List;
 
 /**
@@ -15,6 +17,7 @@ public record Laudo(
         List<String> evidencia,
         String confianca,
         String correcaoSugerida,
-        List<String> hipotesesDescartadas
+        List<String> hipotesesDescartadas,
+        CodeContext codeContext
 ) {
 }
