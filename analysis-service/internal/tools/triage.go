@@ -50,13 +50,13 @@ Dimensoes:
 - gc:         %s
 - lock:       %s
 - alocacao:   %s
-- downstream: nao avaliado (requer captura do trace; get_slow_traces pendente)
+- downstream: %s
 
 Hipotese inicial: %s
 Dimensao suspeita: %s
 Proximo passo sugerido: %s
 `, r.IncidentID, r.Type, r.Endpoint, r.DurationMs, exceptionLine,
-		excDim, gcLine(sig), lockLine(sig), allocLine(sig),
+		excDim, gcLine(sig), lockLine(sig), allocLine(sig), downstreamLine(r),
 		h.text, h.dimension, h.nextStep)
 }
 
@@ -129,6 +129,22 @@ func lockLine(s *incident.TriageSignals) string {
 		return "sem contencao relevante"
 	}
 	return fmt.Sprintf("espera total %dms", s.TotalLockWaitMs)
+}
+
+// downstreamLine resume a arvore do trace (Tier 3): o span dominante ou N+1.
+func downstreamLine(r *incident.Record) string {
+	traces := r.Dimensions.SlowTraces
+	if len(traces) == 0 {
+		return "sem sub-spans no trace (app sem cliente HTTP/JDBC instrumentado, ou nada relevante)"
+	}
+	for _, t := range traces {
+		if strings.HasPrefix(t.Span, "N+1") {
+			return "N+1 detectado (" + traces[0].Span + ") — ver get_slow_traces"
+		}
+	}
+	incidentMs := max(r.DurationMs, 1)
+	top := traces[0]
+	return fmt.Sprintf("%s = ~%d%% da latencia — ver get_slow_traces", top.Span, top.TotalMs*100/incidentMs)
 }
 
 func allocLine(s *incident.TriageSignals) string {

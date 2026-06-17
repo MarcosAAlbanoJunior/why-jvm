@@ -132,6 +132,34 @@ func TestBaselineRender(t *testing.T) {
 	assertContains(t, out, "p99 movel: 380ms")
 }
 
+func TestSlowTracesRender(t *testing.T) {
+	rec := &incident.Record{
+		DurationMs: 80,
+		Dimensions: incident.Dimensions{SlowTraces: []incident.SlowTrace{
+			{Span: "N+1: SELECT orders ×12", SelfMs: 60, TotalMs: 60},
+			{Span: "GET /orders", SelfMs: 20, TotalMs: 80},
+		}},
+	}
+	out := renderSlowTraces(rec)
+	assertContains(t, out, "N+1: SELECT orders ×12")
+	assertContains(t, out, "N+1 detectado")
+	assertContains(t, out, "75% da latencia") // 60/80
+}
+
+func TestSlowTracesRenderEmpty(t *testing.T) {
+	assertContains(t, renderSlowTraces(&incident.Record{DurationMs: 100}), "Sem arvore de trace")
+}
+
+func TestTriageDownstreamReflectsTrace(t *testing.T) {
+	rec := &incident.Record{
+		IncidentID: "inc", Type: "SLOW", Endpoint: "GET /orders", DurationMs: 80,
+		Dimensions: incident.Dimensions{SlowTraces: []incident.SlowTrace{
+			{Span: "N+1: SELECT orders ×12", SelfMs: 60, TotalMs: 60},
+		}},
+	}
+	assertContains(t, renderTriage(rec), "N+1 detectado")
+}
+
 func TestUnknownToolAndIncident(t *testing.T) {
 	reg, id := setup(t, "incident-error.json")
 	if _, err := reg.Call(id, "nope"); !errors.Is(err, ErrUnknownTool) {
