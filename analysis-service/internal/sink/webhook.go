@@ -59,6 +59,9 @@ func formatSlack(l agent.Laudo) string {
 			fmt.Fprintf(&sb, "✓ %s\n", h)
 		}
 	}
+	if l.CodeContext != nil {
+		fmt.Fprintf(&sb, "*Codigo do metodo suspeito:*\n```%s```\n", l.CodeContext.Render())
+	}
 	if l.CorrecaoSugerida != "" {
 		fmt.Fprintf(&sb, "*Correcao sugerida:* %s", l.CorrecaoSugerida)
 	}

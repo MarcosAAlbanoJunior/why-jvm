@@ -67,11 +67,13 @@ func (l *Loop) Investigate(rec *incident.Record) (Laudo, error) {
 		if !resp.WantsTools() {
 			laudo := parseLaudo(resp.FinalText, rec)
 			laudo.HipotesesDescartadas = differential(rec) // diferencial deterministico
+			laudo.CodeContext = rec.CodeContext            // fonte do metodo suspeito (Tier 2)
 			return laudo, nil
 		}
 		if used >= l.maxToolCalls {
 			laudo := turnLimitLaudo(rec)
 			laudo.HipotesesDescartadas = differential(rec)
+			laudo.CodeContext = rec.CodeContext
 			return laudo, nil
 		}
 		ctx = append(ctx, assistantToolCalls(resp.ToolCalls))

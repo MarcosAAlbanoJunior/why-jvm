@@ -6,6 +6,7 @@ package incident
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // SchemaVersion e a unica versao do contrato que este servico aceita hoje.
@@ -29,6 +30,7 @@ type Record struct {
 	Dimensions      Dimensions     `json:"dimensions"`
 	JvmContext      *JvmContext    `json:"jvmContext"`
 	JfrArtifactURI  *string        `json:"jfrArtifactUri"`
+	CodeContext     *CodeContext   `json:"codeContext"`
 }
 
 // Exception traz os detalhes da exception do span (quando type == ERROR).
@@ -130,6 +132,40 @@ type JvmContext struct {
 	HeapMaxMb   int64  `json:"heapMaxMb"`
 	GcName      string `json:"gcName"`
 	ThreadCount int    `json:"threadCount"`
+}
+
+// CodeContext e o fonte do frame de topo da app no stack da exception (Tier 2,
+// code-aware RCA). Resolvido pelo lado Java na captura; o Go so renderiza —
+// nunca acessa o fonte da app. Snippet e nil quando Origin == "UNAVAILABLE".
+type CodeContext struct {
+	Symbol           string  `json:"symbol"`
+	File             string  `json:"file"`
+	Line             int     `json:"line"`
+	Origin           string  `json:"origin"` // SOURCE_JAR | SOURCE_DIR | UNAVAILABLE
+	Snippet          *string `json:"snippet"`
+	SnippetStartLine int     `json:"snippetStartLine"`
+}
+
+// Render monta o bloco legivel do laudo: cabecalho (simbolo (Arquivo:linha)) e,
+// quando ha fonte, o trecho numerado com '>' marcando a linha do frame. Sem
+// fonte, vira uma linha honesta. Espelha CodeContext.render() do core Java.
+func (c *CodeContext) Render() string {
+	head := fmt.Sprintf("%s (%s:%d)", c.Symbol, c.File, c.Line)
+	if c.Origin == "UNAVAILABLE" || c.Snippet == nil || strings.TrimSpace(*c.Snippet) == "" {
+		return head + " — fonte indisponivel em runtime"
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s — fonte: %s", head, c.Origin)
+	n := c.SnippetStartLine
+	for _, row := range strings.Split(*c.Snippet, "\n") {
+		marker := " "
+		if n == c.Line {
+			marker = ">"
+		}
+		fmt.Fprintf(&sb, "\n%s%3d | %s", marker, n, row)
+		n++
+	}
+	return sb.String()
 }
 
 // Validate checa o minimo para aceitar o incidente no ingest. A validacao

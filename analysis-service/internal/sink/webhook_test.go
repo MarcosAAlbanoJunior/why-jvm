@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/whyjvm/analysis-service/internal/agent"
+	"github.com/whyjvm/analysis-service/internal/incident"
 )
 
 func TestWebhookPostsSlackPayload(t *testing.T) {
@@ -41,6 +42,47 @@ func TestWebhookPostsSlackPayload(t *testing.T) {
 	}
 	for _, want := range []string{"POST /checkout", "SLOW", "pausa de GC prolongada", "GC 812ms",
 		"Hipoteses descartadas", "sem espera relevante em monitor", "otimizar alocacao"} {
+		if !strings.Contains(payload.Text, want) {
+			t.Fatalf("text do webhook sem %q:\n%s", want, payload.Text)
+		}
+	}
+}
+
+func TestWebhookIncludesCodeContext(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = string(b)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	snip := "return switch (customer.tier()) {"
+	laudo := agent.Laudo{
+		Endpoint:  "POST /checkout",
+		Tipo:      "ERROR",
+		CausaRaiz: "NPE: findById retornou nil",
+		Confianca: "alta",
+		CodeContext: &incident.CodeContext{
+			Symbol:           "io.whyjvm.sample.checkout.CustomerService.calculateDiscount",
+			File:             "CustomerService.java",
+			Line:             20,
+			Origin:           "SOURCE_DIR",
+			Snippet:          &snip,
+			SnippetStartLine: 20,
+		},
+	}
+	if err := NewWebhook(srv.URL).Publish(laudo); err != nil {
+		t.Fatal(err)
+	}
+
+	var payload struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal([]byte(got), &payload); err != nil {
+		t.Fatalf("payload nao e JSON: %v\n%s", err, got)
+	}
+	for _, want := range []string{"Codigo do metodo suspeito", "CustomerService.java:20", "> 20 | return switch"} {
 		if !strings.Contains(payload.Text, want) {
 			t.Fatalf("text do webhook sem %q:\n%s", want, payload.Text)
 		}

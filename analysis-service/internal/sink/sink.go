@@ -40,6 +40,10 @@ func (*Log) Publish(l agent.Laudo) error {
 			sb.WriteString("  ✓ " + h + "\n")
 		}
 	}
+	if l.CodeContext != nil {
+		sb.WriteString("codigo:\n")
+		sb.WriteString(l.CodeContext.Render() + "\n")
+	}
 	if l.CorrecaoSugerida != "" {
 		sb.WriteString("correcao:   " + l.CorrecaoSugerida + "\n")
 	}
