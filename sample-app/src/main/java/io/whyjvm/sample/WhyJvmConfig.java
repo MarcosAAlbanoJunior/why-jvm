@@ -42,6 +42,21 @@ public class WhyJvmConfig {
                 .incidentDir(Path.of("incidents"))
                 .sink(emailSink(env));
 
+        // Code-aware RCA (Tier 2): pacotes da app e diretorios de fonte vem da
+        // config — nada hardcoded, para o MESMO agente servir qualquer app. Sem
+        // estes, o code-aware degrada honesto para "fonte indisponivel".
+        //   whyjvm.app.packages  (WHYJVM_APP_PACKAGES)  ex: com.acme,com.acme.api
+        //   whyjvm.source.dirs   (WHYJVM_SOURCE_DIRS)   ex: /opt/app/src/main/java
+        String appPackages = env.getProperty("whyjvm.app.packages");
+        if (appPackages != null && !appPackages.isBlank()) {
+            builder.appBasePackages(csv(appPackages));
+        }
+        String sourceDirs = env.getProperty("whyjvm.source.dirs");
+        if (sourceDirs != null && !sourceDirs.isBlank()) {
+            builder.sourceDirs(paths(sourceDirs));
+            LOG.info("Code-aware: lendo fonte de " + sourceDirs);
+        }
+
         // Modo split (Fase 5): se whyjvm.forward.url (WHYJVM_FORWARD_URL) estiver
         // setada, o Java encaminha o incidente para o servico de analise em Go e
         // NAO roda o agente in-process. Sem ela, cai no modo simples (agente local).
@@ -100,6 +115,18 @@ public class WhyJvmConfig {
                 port == 587);
         LOG.info("EmailSink ativo: laudos irao para " + recipients);
         return new EmailSink(config);
+    }
+
+    /** Lista separada por virgula -> array de strings (vazios filtrados). */
+    private static String[] csv(String value) {
+        return Arrays.stream(value.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
+    }
+
+    /** Lista de caminhos separada por virgula -> array de Path (vazios filtrados). */
+    private static Path[] paths(String value) {
+        return Arrays.stream(value.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).map(Path::of).toArray(Path[]::new);
     }
 
     @Bean

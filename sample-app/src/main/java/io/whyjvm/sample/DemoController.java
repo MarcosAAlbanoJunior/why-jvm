@@ -1,5 +1,8 @@
 package io.whyjvm.sample;
 
+import io.whyjvm.sample.checkout.CustomerRepository;
+import io.whyjvm.sample.checkout.CustomerService;
+import io.whyjvm.sample.checkout.OrderService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,6 +70,21 @@ public class DemoController {
             }
         }
         return checksum;
+    }
+
+    private final OrderService orderService =
+            new OrderService(new CustomerService(new CustomerRepository()));
+
+    /**
+     * Cenario code-aware (Tier 2): um cliente inexistente faz {@code findById}
+     * retornar null e {@code calculateDiscount} estoura NPE em {@code customer.tier()}.
+     * O laudo deve nomear {@code CustomerService.calculateDiscount} e mostrar o fonte.
+     * O cliente {@code c-1} existe (caminho feliz).
+     */
+    @GetMapping("/demo/checkout")
+    public String checkout(@RequestParam(name = "customer", defaultValue = "cliente-fantasma") String customer) {
+        double total = orderService.totalWithDiscount(customer, 100.0);
+        return "total com desconto: " + total;
     }
 
     @GetMapping("/demo/error")

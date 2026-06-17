@@ -16,3 +16,12 @@ whyjvm.smtp.user=voce@gmail.com
 whyjvm.smtp.pass=appPasswordSemEspacos
 whyjvm.mail.from=voce@gmail.com
 whyjvm.mail.to=voce@gmail.com
+
+# --- Code-aware RCA (Tier 2): mostra o fonte do metodo suspeito no laudo ---
+# App-agnostico: o agente in-JVM resolve o fonte (o servico Go nunca o acessa).
+# Sem estas chaves, o code-aware degrada honesto para "fonte indisponivel".
+#   whyjvm.app.packages: pacotes-raiz da app (lista por virgula), p/ separar o
+#                        frame da app do de framework/JDK.
+#   whyjvm.source.dirs : diretorios de fonte da app (lista por virgula).
+whyjvm.app.packages=io.whyjvm.sample
+whyjvm.source.dirs=sample-app/src/main/java
