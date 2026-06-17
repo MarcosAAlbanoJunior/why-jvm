@@ -45,12 +45,17 @@ public final class EvidenceExtractor {
     }
 
     /**
-     * Le o snapshot uma vez e devolve sinais + dimensoes. {@code threadName} e a
+     * Le o snapshot uma vez e devolve sinais + dimensoes. A janela e a do PROPRIO
+     * request ({@code [capturedAt - durationMs, capturedAt]}) — nao um intervalo fixo
+     * — para a evidencia refletir o que aconteceu durante a requisicao, sem varrer a
+     * vida ociosa da thread (ex.: park no pool entre requests). {@code threadName} e a
      * thread que atendeu o request, usada para atribuir a atividade de thread.
      */
-    public static Result extract(Path jfr, Instant capturedAt, String threadName) throws IOException {
+    public static Result extract(Path jfr, Instant capturedAt, long durationMs, String threadName)
+            throws IOException {
         Acc acc = new Acc(threadName);
-        JfrSnapshot.forEachEvent(jfr, capturedAt, acc::accept);
+        Instant from = capturedAt.minusMillis(Math.max(0, durationMs));
+        JfrSnapshot.forEachEvent(jfr, from, capturedAt, acc::accept);
         return acc.toResult();
     }
 

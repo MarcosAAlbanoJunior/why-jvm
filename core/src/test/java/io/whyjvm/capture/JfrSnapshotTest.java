@@ -45,12 +45,40 @@ class JfrSnapshotTest {
         }
 
         List<RecordedEvent> seen = new ArrayList<>();
-        JfrSnapshot.forEachEvent(jfr, Instant.now().plusSeconds(1), event -> {
+        Instant now = Instant.now();
+        JfrSnapshot.forEachEvent(jfr, now.minusSeconds(10), now.plusSeconds(10), event -> {
             if ("test.Marker".equals(event.getEventType().getName())) {
                 seen.add(event);
             }
         });
 
         assertEquals(5, seen.size());
+    }
+
+    @Test
+    void excludesEventsOutsideWindow(@TempDir Path dir) throws Exception {
+        Path jfr = dir.resolve("snapshot.jfr");
+        try (Recording recording = new Recording()) {
+            recording.enable("test.Marker");
+            recording.start();
+            for (int i = 0; i < 5; i++) {
+                Marker marker = new Marker();
+                marker.n = i;
+                marker.commit();
+            }
+            recording.stop();
+            recording.dump(jfr);
+        }
+
+        // Janela inteira no passado (antes dos markers): nada deve entrar.
+        Instant now = Instant.now();
+        List<RecordedEvent> seen = new ArrayList<>();
+        JfrSnapshot.forEachEvent(jfr, now.minusSeconds(60), now.minusSeconds(30), event -> {
+            if ("test.Marker".equals(event.getEventType().getName())) {
+                seen.add(event);
+            }
+        });
+
+        assertEquals(0, seen.size());
     }
 }

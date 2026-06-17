@@ -9,7 +9,6 @@ import jdk.jfr.consumer.RecordingFile;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
 
@@ -20,20 +19,22 @@ import java.util.function.Consumer;
  */
 final class JfrSnapshot {
 
-    /** Janela de evidencia lida em torno do instante do incidente. */
-    static final Duration WINDOW = Duration.ofSeconds(60);
-
     private JfrSnapshot() {
     }
 
-    /** Itera os eventos do arquivo cujo fim cai em {@code [to - WINDOW, to]}. */
-    static void forEachEvent(Path jfr, Instant to, Consumer<RecordedEvent> consumer) throws IOException {
-        Instant from = to.minus(WINDOW);
+    /**
+     * Itera os eventos <b>inteiramente contidos</b> na janela {@code [from, to]} —
+     * start E end dentro do intervalo. Filtrar pelo start (nao so pelo fim) e o que
+     * exclui a espera ANTERIOR ao request: uma thread reaproveitada do pool fica em
+     * {@code park} ociosa entre requests, e esse park termina no inicio do request;
+     * contar so o que comecou dentro da janela atribui a atividade ao request certo.
+     */
+    static void forEachEvent(Path jfr, Instant from, Instant to, Consumer<RecordedEvent> consumer)
+            throws IOException {
         try (RecordingFile rf = new RecordingFile(jfr)) {
             while (rf.hasMoreEvents()) {
                 RecordedEvent event = rf.readEvent();
-                Instant t = event.getEndTime();
-                if (t.isBefore(from) || t.isAfter(to)) {
+                if (event.getStartTime().isBefore(from) || event.getEndTime().isAfter(to)) {
                     continue;
                 }
                 consumer.accept(event);

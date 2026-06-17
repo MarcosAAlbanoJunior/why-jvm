@@ -28,6 +28,13 @@ alocacao/GC se a thread do request esteve majoritariamente em CPU.
 Calibre a confianca pela fracao da latencia explicada E pela atribuicao a
 thread do request: nao diga 'alta' se a maior parte da latencia ficou sem
 explicacao na thread do request, nem com base so em numeros JVM-wide.
+Quando a thread do request ESPEROU (espera externa) ou a triagem indicar
+sub-spans no trace, chame get_slow_traces ANTES de concluir: ele mostra QUAL
+chamada (banco/downstream) dominou a latencia e detecta N+1 (muitas chamadas
+identicas). Se houver N+1, a causa raiz e a REPETICAO (ex.: 40x a mesma query
+'SELECT orders'), nao uma chamada isolada nem 'park/espera' generico — diga
+isso explicitamente e quantifique. Nao conclua 'espera externa' sem antes
+olhar o trace.
 Ao concluir, produza um laudo JSON com os campos: endpoint, tipo,
 causa_raiz, evidencia (lista), confianca (alta/media/baixa) e
 correcao_sugerida. Responda APENAS com o JSON cru, sem cercas de
