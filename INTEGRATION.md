@@ -4,9 +4,10 @@ Como plugar o why-jvm num app de verdade para receber alertas de **erro** e
 **lentidão**. Resume o estado atual (integração como biblioteca) e o plano para
 o alvo desejado: **zero-código via `-javaagent`**.
 
-> TL;DR: hoje funciona como **biblioteca** (adicionar deps + registrar o
-> `SpanProcessor` + ter spans OTel). O **zero-código** exige construir um módulo
-> de **extensão do agente OpenTelemetry** — ainda não feito. Plano abaixo.
+> TL;DR: funciona como **biblioteca** (adicionar deps + registrar o `SpanProcessor`
+> + ter spans OTel) **e** como **extensão zero-código do agente OpenTelemetry** —
+> implementada no módulo [`otel-extension/`](otel-extension/) (modo split). Detalhes
+> de build e do comando `-javaagent` no README do módulo.
 
 ---
 
@@ -16,7 +17,7 @@ o alvo desejado: **zero-código via `-javaagent`**.
 |---|---|
 | Lib + registrar o processor + spans OTel manuais (como o `sample-app`) | ✅ funciona |
 | Lib num Spring Boot real com starter OTel | ✅ funciona, com wiring |
-| `-javaagent` zero-código (extensão do agente OTel) | ❌ falta o módulo de extensão |
+| `-javaagent` zero-código (extensão do agente OTel) | ✅ módulo [`otel-extension/`](otel-extension/) (split) |
 | LLM in-process em produção | ⚠️ funciona, mas pesado e morre junto no OOM — preferir o split (Fase 5) |
 
 ---
@@ -76,7 +77,10 @@ o JSON localmente antes do POST; se o Go estiver fora, o incidente fica no outbo
 (`incidents/outbox/`) e um varredor reenvia depois. Reenvio é seguro: o Go dedupa
 por `incidentId`.
 
-## 3. Objetivo: zero-código via `-javaagent` (a fazer)
+## 3. Zero-código via `-javaagent` ✅ (implementado em [`otel-extension/`](otel-extension/))
+
+> Implementado conforme o desenho abaixo. Build e uso no [README do módulo](otel-extension/README.md).
+
 
 Escrever um `-javaagent` do zero (com `premain` + instrumentar HTTP/JDBC via
 bytecode) é reinventar o agente OTel — **não fazer isso**. O caminho certo é
@@ -142,15 +146,14 @@ Dois modos:
 
 ---
 
-## 5. Checklist para a próxima vez
+## 5. Checklist (feito ✅)
 
-- [ ] Criar módulo `otel-extension/` (depende de `core`).
-- [ ] Implementar `WhyJvmAutoConfig` (`AutoConfigurationCustomizerProvider`) +
+- [x] Criar módulo `otel-extension/` (depende de `core`).
+- [x] Implementar `WhyJvmAutoConfig` (`AutoConfigurationCustomizerProvider`) +
       registro em `META-INF/services`.
-- [ ] Ler config (`whyjvm.*`) de `ConfigProperties` (BYOK).
-- [ ] Empacotar shaded com Shadow, sem a SDK do OTel, cuidando do classloader.
-- [ ] README do módulo com o comando `-javaagent ... -Dotel.javaagent.extensions=...`.
-- [ ] Decidir modo simples (tudo junto) vs produção (extensão = só captura,
-      investigação fora — Fase 5).
-- [ ] Garantir que o processor entra **síncrono** (não BatchSpanProcessor), senão
-      o `get_thread_activity` perde a thread do request.
+- [x] Ler config (`whyjvm.*`) de `ConfigProperties` (BYOK).
+- [x] Empacotar shaded com Shadow, sem a SDK do OTel, cuidando do classloader.
+- [x] README do módulo com o comando `-javaagent ... -Dotel.javaagent.extensions=...`.
+- [x] Modo **split** (extensão = só captura + forward; investigação no serviço Go).
+      Modo simples (tudo junto, com `sinks`/`llm`) fica como variante futura.
+- [x] Processor entra **síncrono** (não BatchSpanProcessor) — preserva a thread do request.
