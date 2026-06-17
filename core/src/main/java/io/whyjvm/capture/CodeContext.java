@@ -34,4 +34,23 @@ public record CodeContext(
     public static CodeContext unavailable(String symbol, String file, int line) {
         return new CodeContext(symbol, file, line, Origin.UNAVAILABLE, null, 0);
     }
+
+    /**
+     * Bloco legivel para o laudo: cabecalho ({@code simbolo (Arquivo:linha, fonte)})
+     * e, quando ha fonte, o trecho numerado com {@code >} marcando a linha do frame.
+     * Sem fonte, vira uma linha honesta "fonte indisponivel em runtime".
+     */
+    public String render() {
+        String head = symbol + " (" + file + ":" + line + ")";
+        if (origin == Origin.UNAVAILABLE || snippet == null || snippet.isBlank()) {
+            return head + " — fonte indisponivel em runtime";
+        }
+        StringBuilder sb = new StringBuilder(head).append(" — fonte: ").append(origin);
+        int n = snippetStartLine;
+        for (String row : snippet.split("\n", -1)) {
+            sb.append('\n').append(String.format("%s%3d | %s", n == line ? ">" : " ", n, row));
+            n++;
+        }
+        return sb.toString();
+    }
 }

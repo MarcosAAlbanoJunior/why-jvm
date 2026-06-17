@@ -115,12 +115,13 @@ public final class AgentLoop {
                     evidencia,
                     text(n, "confianca", "baixa"),
                     text(n, "correcao_sugerida", ""),
-                    Differential.of(incident) // diferencial deterministico
+                    Differential.of(incident), // diferencial deterministico
+                    incident.codeContext() // fonte do metodo suspeito (Tier 2)
             );
         } catch (Exception e) {
             LOG.warning("Resposta do modelo nao era JSON valido; embrulhando como texto livre.");
             return new Laudo(incident.endpoint(), incident.type().name(), json,
-                    List.of(), "baixa", "", Differential.of(incident));
+                    List.of(), "baixa", "", Differential.of(incident), incident.codeContext());
         }
     }
 
@@ -147,6 +148,6 @@ public final class AgentLoop {
                 "Investigacao interrompida pelo teto de turnos.",
                 List.of("Limite de chamadas de tool atingido antes de convergir."),
                 "baixa", "Revisar manualmente ou aumentar o teto de turnos.",
-                Differential.of(i));
+                Differential.of(i), i.codeContext());
     }
 }

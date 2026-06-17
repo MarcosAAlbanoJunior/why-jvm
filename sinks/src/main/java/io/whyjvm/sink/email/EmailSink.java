@@ -79,6 +79,9 @@ public final class EmailSink implements Sink {
         String descartadas = l.hipotesesDescartadas().isEmpty()
                 ? "(nenhuma)"
                 : l.hipotesesDescartadas().stream().map(h -> "  + " + h).collect(Collectors.joining("\n"));
+        String codigo = l.codeContext() == null
+                ? ""
+                : "Codigo do metodo suspeito:\n" + l.codeContext().render() + "\n\n";
         return """
                 Incidente em %s (%s)
 
@@ -91,12 +94,13 @@ public final class EmailSink implements Sink {
                 Hipoteses descartadas:
                 %s
 
-                Correcao sugerida:
+                %sCorrecao sugerida:
                 %s
 
                 --
                 why-jvm — RCA acionado por gatilho
                 """.formatted(
-                l.endpoint(), l.tipo(), l.causaRaiz(), l.confianca(), evidencia, descartadas, l.correcaoSugerida());
+                l.endpoint(), l.tipo(), l.causaRaiz(), l.confianca(), evidencia, descartadas,
+                codigo, l.correcaoSugerida());
     }
 }
