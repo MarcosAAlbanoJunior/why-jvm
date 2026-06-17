@@ -63,6 +63,29 @@ O `/demo/error` lança uma exception → o gatilho dispara → JFR congela a jan
 o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica em
 `incidents/`.
 
+### Code-aware RCA (Tier 2): o fonte do método suspeito no laudo
+
+Em incidentes de erro, o laudo pode incluir o **trecho de fonte** do método no topo
+do stack da app — não só "NPE na linha 20", mas o código com a linha marcada. A
+resolução roda no agente in-JVM (o serviço Go nunca acessa o fonte); é configurada
+por env e **app-agnóstica** — o mesmo agente serve qualquer app:
+
+| Chave | Env | O que é |
+|---|---|---|
+| `whyjvm.app.packages` | `WHYJVM_APP_PACKAGES` | pacotes-raiz da app (ex.: `com.acme`), para separar o frame da app do de framework/JDK. Lista por vírgula. |
+| `whyjvm.source.dirs` | `WHYJVM_SOURCE_DIRS` | diretórios de fonte da app (ex.: `/opt/app/src/main/java`). Lista por vírgula. |
+
+Sem elas, o code-aware degrada honesto para *"fonte indisponível em runtime"* (nomeia
+o método, sem o trecho). Exemplo com o sample (NPE real em `CustomerService.calculateDiscount`):
+
+```bash
+WHYJVM_APP_PACKAGES=io.whyjvm.sample \
+WHYJVM_SOURCE_DIRS=sample-app/src/main/java \
+./gradlew :sample-app:bootRun
+# em outro terminal:
+curl "http://localhost:8080/demo/checkout?customer=fantasma"
+```
+
 ## Onde cada fase do roadmap mora no código
 
 | Fase | Entrega | Status no código |
