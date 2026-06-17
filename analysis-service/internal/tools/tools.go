@@ -28,7 +28,7 @@ type Tool struct {
 
 // Registry resolve tools por nome e carrega o incidente do store sob demanda.
 type Registry struct {
-	store store.Store
+	store  store.Store
 	byName map[string]Tool
 	order  []string
 }
@@ -54,6 +54,9 @@ func NewRegistry(st store.Store) *Registry {
 	r.register(Tool{"get_lock_contention",
 		"Threads bloqueadas em monitor na janela: call sites por tempo de espera.",
 		renderLockContention})
+	r.register(Tool{"get_slow_traces",
+		"Spans mais lentos do trace: qual span/metodo dominou a latencia (self time) e deteccao de N+1.",
+		renderSlowTraces})
 	r.register(Tool{"get_endpoint_baseline",
 		"Comportamento normal do endpoint (p99 movel e limiar), para comparar.",
 		renderBaseline})

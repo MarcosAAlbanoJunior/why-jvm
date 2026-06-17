@@ -108,6 +108,35 @@ func renderThreadActivity(r *incident.Record) string {
 `, a.Thread, r.DurationMs, a.SleepMs, sleepSite, a.IoMs, a.LockMs, a.ParkMs, a.CpuSamples, conclusion)
 }
 
+// renderSlowTraces porta GetSlowTracesTool: arvore do trace, span dominante e N+1.
+func renderSlowTraces(r *incident.Record) string {
+	traces := r.Dimensions.SlowTraces
+	if len(traces) == 0 {
+		return "Sem arvore de trace para este incidente — a app nao gerou sub-spans na janela " +
+			"(cliente HTTP/JDBC instrumentado?). Nada a atribuir por span."
+	}
+	incidentMs := max(r.DurationMs, 1)
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Spans mais lentos do trace (latencia do incidente: %dms):\n", incidentMs)
+	hasNPlusOne := false
+	for _, t := range traces {
+		if strings.HasPrefix(t.Span, "N+1") {
+			hasNPlusOne = true
+		}
+		fmt.Fprintf(&sb, "  - %s: self %dms, total %dms (~%d%% da latencia)\n",
+			t.Span, t.SelfMs, t.TotalMs, t.TotalMs*100/incidentMs)
+	}
+	sb.WriteString("\n")
+	if hasNPlusOne {
+		sb.WriteString("N+1 detectado: chamadas identicas repetidas dominam o tempo — agrupe/elimine as " +
+			"repeticoes (batch, join, cache) em vez de otimizar uma chamada isolada.\n")
+	} else {
+		sb.WriteString("O span no topo concentra o self time; investigue-o (consulta/downstream/algoritmo) " +
+			"antes de qualquer dimensao JVM-wide.\n")
+	}
+	return sb.String()
+}
+
 // renderBaseline mostra o comportamento normal do endpoint.
 func renderBaseline(r *incident.Record) string {
 	b := r.Baseline
