@@ -6,6 +6,10 @@ import io.opentelemetry.sdk.trace.ReadWriteSpan;
 import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.whyjvm.capture.SlowTrace;
+import io.whyjvm.capture.SlowTraceAssembler;
+
+import java.util.List;
 
 /**
  * Portao 1 (o gatilho): ponto de instrumentacao mais limpo no mundo Java.
@@ -22,23 +26,36 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
     private final TriggerService triggerService;
     private final IncidentDeduplicator dedup;
     private final LatencyBaseline baseline;
+    private final TraceSpanBuffer spanBuffer;
 
     public IncidentTriggerProcessor(TriggerService triggerService, IncidentDeduplicator dedup,
-                                    LatencyBaseline baseline) {
+                                    LatencyBaseline baseline, TraceSpanBuffer spanBuffer) {
         this.triggerService = triggerService;
         this.dedup = dedup;
         this.baseline = baseline;
+        this.spanBuffer = spanBuffer;
     }
 
     @Override
     public void onEnd(ReadableSpan span) {
         SpanData s = span.toSpanData();
+        long durationNanos = s.getEndEpochNanos() - s.getStartEpochNanos();
+        String traceId = s.getTraceId();
+        String parentSpanId = s.getParentSpanContext().isValid() ? s.getParentSpanContext().getSpanId() : null;
+        boolean isRoot = parentSpanId == null;
+
+        // Retem TODO span para montar a arvore do trace no disparo (Tier 3): os
+        // filhos fecham antes do root, entao precisam ser guardados antes de saber
+        // se o trace vira incidente.
+        spanBuffer.record(traceId, s.getSpanId(), parentSpanId, s.getName(), durationNanos);
+
         boolean isError = s.getStatus().getStatusCode() == StatusCode.ERROR;
-        long durationMs = (s.getEndEpochNanos() - s.getStartEpochNanos()) / 1_000_000;
+        long durationMs = durationNanos / 1_000_000;
 
         IncidentType type = classify(s.getName(), isError, durationMs);
         if (type == null) {
-            return; // request normal: nada a investigar.
+            evictIfRoot(isRoot, traceId); // trace normal terminou: libera o buffer.
+            return;
         }
 
         String fingerprint = Fingerprints.of(s.getName(), type, s);
@@ -46,12 +63,23 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
         // Controle de tempestade: uma investigacao por fingerprint a cada
         // cooldown. As outras N falhas so incrementam o contador (custo zero).
         if (!dedup.shouldFire(fingerprint)) {
+            evictIfRoot(isRoot, traceId);
             return;
         }
 
+        // Monta a arvore com os spans retidos do trace (e remove do buffer).
+        List<SlowTrace> slowTraces = SlowTraceAssembler.assemble(spanBuffer.collectAndEvict(traceId));
+
         // onEnd roda na propria thread do request (no span.end()): captura o nome.
         triggerService.fire(new Incident(s.getName(), type, durationMs, fingerprint,
-                Thread.currentThread().getName(), s));
+                Thread.currentThread().getName(), s, slowTraces));
+    }
+
+    /** Root sem incidente: o trace terminou, descarta o buffer. Span filho: o root limpa depois. */
+    private void evictIfRoot(boolean isRoot, String traceId) {
+        if (isRoot) {
+            spanBuffer.evict(traceId);
+        }
     }
 
     /**

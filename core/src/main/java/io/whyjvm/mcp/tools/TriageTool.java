@@ -2,11 +2,13 @@ package io.whyjvm.mcp.tools;
 
 import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.capture.IncidentStore;
+import io.whyjvm.capture.SlowTrace;
 import io.whyjvm.capture.TriageSignals;
 import io.whyjvm.mcp.Tool;
 import io.whyjvm.mcp.ToolResult;
 import io.whyjvm.trigger.IncidentType;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -89,7 +91,7 @@ public final class TriageTool implements Tool {
                 - gc:         %s
                 - lock:       %s
                 - alocacao:   %s
-                - downstream: nao avaliado (requer captura do trace; get_slow_traces pendente)
+                - downstream: %s
 
                 Hipotese inicial: %s
                 Dimensao suspeita: %s
@@ -97,7 +99,7 @@ public final class TriageTool implements Tool {
                 """.formatted(
                 r.incidentId(), r.type(), r.endpoint(), r.durationMs(), exceptionLine,
                 hasException ? "ANOMALA (exception anexada ao span)" : "sem exception",
-                gcLine(sig), lockLine(sig), allocLine(sig),
+                gcLine(sig), lockLine(sig), allocLine(sig), downstreamLine(r),
                 h.hypothesis(), h.dimension(), h.nextStep());
     }
 
@@ -169,6 +171,20 @@ public final class TriageTool implements Tool {
         }
         return s.totalLockWaitMs() == 0 ? "sem contencao relevante"
                 : "espera total %dms".formatted(s.totalLockWaitMs());
+    }
+
+    /** Resumo da arvore do trace (Tier 3): o span dominante ou N+1, se houver. */
+    private static String downstreamLine(IncidentRecord r) {
+        List<SlowTrace> traces = r.dimensions().slowTraces();
+        if (traces == null || traces.isEmpty()) {
+            return "sem sub-spans no trace (app sem cliente HTTP/JDBC instrumentado, ou nada relevante)";
+        }
+        if (traces.stream().anyMatch(t -> t.span().startsWith("N+1"))) {
+            return "N+1 detectado (" + traces.get(0).span() + ") — ver get_slow_traces";
+        }
+        SlowTrace top = traces.get(0);
+        long incidentMs = Math.max(1, r.durationMs());
+        return top.span() + " = ~" + (top.totalMs() * 100 / incidentMs) + "% da latencia — ver get_slow_traces";
     }
 
     private static String allocLine(TriageSignals s) {

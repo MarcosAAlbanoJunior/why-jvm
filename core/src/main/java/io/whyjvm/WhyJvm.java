@@ -16,6 +16,7 @@ import io.whyjvm.mcp.tools.GetAllocationHotspotsTool;
 import io.whyjvm.mcp.tools.GetExceptionDetailsTool;
 import io.whyjvm.mcp.tools.GetGcActivityTool;
 import io.whyjvm.mcp.tools.GetLockContentionTool;
+import io.whyjvm.mcp.tools.GetSlowTracesTool;
 import io.whyjvm.mcp.tools.GetThreadActivityTool;
 import io.whyjvm.mcp.tools.TriageTool;
 import io.whyjvm.sink.LoggingSink;
@@ -23,6 +24,7 @@ import io.whyjvm.sink.Sink;
 import io.whyjvm.trigger.IncidentDeduplicator;
 import io.whyjvm.trigger.IncidentTriggerProcessor;
 import io.whyjvm.trigger.LatencyBaseline;
+import io.whyjvm.trigger.TraceSpanBuffer;
 import io.whyjvm.trigger.TriggerService;
 
 import java.nio.file.Path;
@@ -164,16 +166,16 @@ public final class WhyJvm {
                     .register(new GetThreadActivityTool(incidentStore))
                     .register(new GetGcActivityTool(incidentStore))
                     .register(new GetAllocationHotspotsTool(incidentStore))
-                    .register(new GetLockContentionTool(incidentStore));
-            // TODO Fase 3: get_slow_traces depende de capturar a arvore de spans
-            //              do trace (filhos), nao so o span que disparou.
+                    .register(new GetLockContentionTool(incidentStore))
+                    .register(new GetSlowTracesTool(incidentStore));
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
             TriggerService triggerService = new TriggerService(capture, agent, sink, forwarder);
             IncidentDeduplicator dedup = new IncidentDeduplicator(cooldown);
             LatencyBaseline baseline = new LatencyBaseline(slowFactor);
+            TraceSpanBuffer spanBuffer = new TraceSpanBuffer();
 
-            return new WhyJvm(new IncidentTriggerProcessor(triggerService, dedup, baseline));
+            return new WhyJvm(new IncidentTriggerProcessor(triggerService, dedup, baseline, spanBuffer));
         }
     }
 }

@@ -19,4 +19,9 @@ public record Dimensions(
     public static Dimensions empty() {
         return new Dimensions(null, null, null, null, null);
     }
+
+    /** Copia trocando so a dimensao {@code slowTraces} (Tier 3, vem do trace, nao do JFR). */
+    public Dimensions withSlowTraces(List<SlowTrace> slowTraces) {
+        return new Dimensions(gcActivity, allocationHotspots, lockContention, threadActivity, slowTraces);
+    }
 }

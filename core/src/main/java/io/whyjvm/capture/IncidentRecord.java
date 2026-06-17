@@ -3,6 +3,7 @@ package io.whyjvm.capture;
 import io.whyjvm.trigger.IncidentType;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * O pacote de evidencia duravel de um incidente, ja com os agregados extraidos do
@@ -54,12 +55,24 @@ public record IncidentRecord(
                 null, Dimensions.empty(), jvmContext, null, null);
     }
 
-    /** Copia com os agregados extraidos do snapshot e o ponteiro para o .jfr. */
+    /**
+     * Copia com os agregados extraidos do snapshot e o ponteiro para o .jfr. Preserva
+     * os {@code slowTraces} (Tier 3) ja montados no freeze — eles vem do trace, nao do
+     * JFR, e o enriquecimento JFR nao deve descarta-los.
+     */
     public IncidentRecord withEvidence(TriageSignals signals, Dimensions dims, String jfrArtifactUri) {
         return new IncidentRecord(
                 schemaVersion, incidentId, capturedAt, endpoint, type, fingerprint,
                 threadName, durationMs, occurrenceCount, exception, baseline,
-                signals, dims, jvmContext, jfrArtifactUri, codeContext);
+                signals, dims.withSlowTraces(dimensions.slowTraces()), jvmContext, jfrArtifactUri, codeContext);
+    }
+
+    /** Copia com a arvore do trace (Tier 3), anexada no freeze a partir do TraceSpanBuffer. */
+    public IncidentRecord withSlowTraces(List<SlowTrace> slowTraces) {
+        return new IncidentRecord(
+                schemaVersion, incidentId, capturedAt, endpoint, type, fingerprint,
+                threadName, durationMs, occurrenceCount, exception, baseline,
+                triageSignals, dimensions.withSlowTraces(slowTraces), jvmContext, jfrArtifactUri, codeContext);
     }
 
     /** Copia com o contexto de codigo do frame suspeito (Tier 2, resolvido na captura). */
