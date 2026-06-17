@@ -123,7 +123,8 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
             return record; // JFR nao gerou evidencia desta janela.
         }
         try {
-            EvidenceExtractor.Result r = EvidenceExtractor.extract(jfr, record.capturedAt(), record.threadName());
+            EvidenceExtractor.Result r = EvidenceExtractor.extract(
+                    jfr, record.capturedAt(), record.durationMs(), record.threadName());
             IncidentRecord enriched = record.withEvidence(r.signals(), r.dimensions(), jfr.toString());
             store.save(enriched);
             return enriched;
