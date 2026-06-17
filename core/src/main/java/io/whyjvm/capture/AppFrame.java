@@ -61,6 +61,20 @@ public record AppFrame(String symbol, String file, int line) {
         return Optional.empty();
     }
 
+    /**
+     * Caminho do recurso/fonte deste frame: o pacote da classe declarante como
+     * diretorios + o arquivo do frame. Ex.: {@code io/app/checkout/CustomerService.java}.
+     * Deriva o pacote da classe (nao do nome do arquivo) para acertar inner classes
+     * — {@code io.app.Svc$Worker} + {@code Svc.java} -> {@code io/app/Svc.java}.
+     */
+    public String sourceResourcePath() {
+        int methodDot = symbol.lastIndexOf('.');
+        String declaringClass = methodDot < 0 ? symbol : symbol.substring(0, methodDot);
+        int pkgDot = declaringClass.lastIndexOf('.');
+        String pkg = pkgDot < 0 ? "" : declaringClass.substring(0, pkgDot);
+        return pkg.isEmpty() ? file : pkg.replace('.', '/') + "/" + file;
+    }
+
     /** Remove o indentador e o "at " inicial do frame ("\tat io.app.Foo..." -> "io.app.Foo..."). */
     private static String stripFramePrefix(String raw) {
         String t = raw.strip();

@@ -110,4 +110,24 @@ class AppFrameTest {
         assertEquals(Optional.empty(), AppFrame.top(null, APP));
         assertEquals(Optional.empty(), AppFrame.top("   ", APP));
     }
+
+    @Test
+    void sourceResourcePathFromPackage() {
+        AppFrame f = new AppFrame(
+                "io.whyjvm.sample.checkout.CustomerService.calculateDiscount", "CustomerService.java", 20);
+        assertEquals("io/whyjvm/sample/checkout/CustomerService.java", f.sourceResourcePath());
+    }
+
+    @Test
+    void sourceResourcePathUsesDeclaringClassForInnerClass() {
+        // Inner class: o pacote vem da classe, nao do nome do arquivo.
+        AppFrame f = new AppFrame("io.whyjvm.sample.Svc$Worker.lambda$run$0", "Svc.java", 77);
+        assertEquals("io/whyjvm/sample/Svc.java", f.sourceResourcePath());
+    }
+
+    @Test
+    void sourceResourcePathDefaultPackage() {
+        AppFrame f = new AppFrame("Foo.bar", "Foo.java", 1);
+        assertEquals("Foo.java", f.sourceResourcePath());
+    }
 }
