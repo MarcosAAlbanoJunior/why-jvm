@@ -39,11 +39,17 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
 
     private final Path incidentDir;
     private final IncidentStore store;
+    private final CodeContextResolver codeContext; // null = code-aware desligado
     private Recording rolling;
 
     public JfrEvidenceCapture(Path incidentDir, IncidentStore store) {
+        this(incidentDir, store, null);
+    }
+
+    public JfrEvidenceCapture(Path incidentDir, IncidentStore store, CodeContextResolver codeContext) {
         this.incidentDir = incidentDir;
         this.store = store;
+        this.codeContext = codeContext;
         startRollingRecording();
     }
 
@@ -107,7 +113,10 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
 
     @Override
     public IncidentRecord extract(Captured captured) {
-        IncidentRecord record = captured.record();
+        // Code-aware (Tier 2): resolve o fonte do frame suspeito a partir do stack da
+        // exception. Independe do JFR — um ERROR sem snapshot ainda tem stack a apontar.
+        IncidentRecord record = withCodeContext(captured.record());
+
         Path jfr = captured.jfr();
         if (jfr == null) {
             return record; // JFR nao gerou evidencia desta janela.
@@ -119,6 +128,25 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
             return enriched;
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Falha ao extrair evidencia JFR do incidente " + record.incidentId(), e);
+            return record;
+        }
+    }
+
+    /** Anexa o code context quando ha resolver e algo concreto a apontar; senao, o registro inalterado. */
+    private IncidentRecord withCodeContext(IncidentRecord record) {
+        if (codeContext == null) {
+            return record;
+        }
+        try {
+            CodeContext cc = codeContext.forIncident(record);
+            if (cc == null) {
+                return record;
+            }
+            IncidentRecord enriched = record.withCodeContext(cc);
+            store.save(enriched);
+            return enriched;
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Falha ao resolver code context do incidente " + record.incidentId(), e);
             return record;
         }
     }
