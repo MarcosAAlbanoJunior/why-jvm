@@ -45,7 +45,7 @@ do diferencial. Sem snapshot JFR, não se descarta nada (honesto).
 
 ---
 
-## Tier 2 — Code-aware RCA (ler o fonte do método suspeito) 🗺️ *(próximo)*
+## Tier 2 — Code-aware RCA (ler o fonte do método suspeito) ✅ *(concluído)*
 
 Transforma *onde* (linha 48) em *por quê* **com evidência**. O agente lê o fonte do
 método no topo do stack (pelo símbolo `Classe.metodo(Arquivo.java:linha)`) e confirma
@@ -91,7 +91,7 @@ fora do escopo atual — registrado aqui pra não se perder.
 
 ## Ordem
 
-1. **Tier 1 — hipóteses descartadas** (em implementação). Maior impacto/risco, dados prontos.
-2. **Tier 2 — code-aware RCA**. O diferencial mais forte.
-3. **Tier 3 — get_slow_traces**. Destrava "% do tempo" e N+1.
+1. **Tier 1 — hipóteses descartadas** ✅. Maior impacto/risco, dados prontos.
+2. **Tier 2 — code-aware RCA** ✅. O diferencial mais forte.
+3. **Tier 3 — get_slow_traces** 🗺️ *(próximo)*. Destrava "% do tempo" e N+1.
 4. **Norte** — correlação com deploy/histórico. Só depois do Postgres + feed de deploy.
