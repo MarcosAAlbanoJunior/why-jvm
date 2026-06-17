@@ -4,6 +4,8 @@
 // consistente entre os dois lados do split.
 package agent
 
+import "github.com/whyjvm/analysis-service/internal/incident"
+
 // Role e o papel de uma mensagem no contexto.
 type Role string
 
@@ -70,12 +72,15 @@ type Laudo struct {
 	// HipotesesDescartadas e o diagnostico diferencial DETERMINISTICO (do triage,
 	// nao do LLM): o que NAO e a causa, cada item ancorado num sinal medido.
 	HipotesesDescartadas []string `json:"hipoteses_descartadas,omitempty"`
+	// CodeContext e o fonte do metodo suspeito (Tier 2), resolvido pelo lado Java
+	// na captura e so renderizado aqui. Nil quando nao ha o que apontar.
+	CodeContext *incident.CodeContext `json:"code_context,omitempty"`
 }
 
 // Helpers de construcao de mensagem (espelham Message do core).
 
 func systemMsg(content string) Message { return Message{Role: RoleSystem, Content: content} }
-func userMsg(content string) Message    { return Message{Role: RoleUser, Content: content} }
+func userMsg(content string) Message   { return Message{Role: RoleUser, Content: content} }
 
 func assistantToolCalls(calls []ToolCall) Message {
 	return Message{Role: RoleAssistant, ToolCalls: calls}
