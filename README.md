@@ -23,6 +23,7 @@ só enxerga agregados do incidente. Isso é o que torna o custo de token viável
 | [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail hoje; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
 | [`llm/`](llm/) | Provider de IA real (`LangChain4jProvider`) — Gemini via LangChain4j, multi-provider por env. Também fora do `core`. |
 | [`sample-app/`](sample-app/) | App Spring Boot de teste. Existe só para gerar spans reais e exercitar o circuito. Não é o produto. |
+| [`otel-extension/`](otel-extension/) | Extensão do agente OpenTelemetry: pluga o why-jvm em qualquer app Java **zero-código** (`-javaagent` + `-Dotel.javaagent.extensions=...`). Jar shaded, modo split. |
 | [`analysis-service/`](analysis-service/) | O lado **Go** do split (Fase 5): recebe o `IncidentRecord` JSON do Java, persiste e (próximas fases) serve tools MCP + agente + canais. Módulo Go próprio; não parseia JFR. |
 
 ## Arquitetura (pacotes do `core`)
