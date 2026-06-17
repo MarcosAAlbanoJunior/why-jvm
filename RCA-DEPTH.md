@@ -65,7 +65,7 @@ Ninguém combina isso. Esforço médio (um tool que lê `arquivo:linha` do repo 
 
 ---
 
-## Tier 3 — `get_slow_traces` (árvore do trace) 🗺️ *(depois)*
+## Tier 3 — `get_slow_traces` (árvore do trace) ✅ *(concluído)*
 
 A captura da árvore de spans do trace (filhos, não só o span que disparou), com
 tempo por span. Destrava:
@@ -93,5 +93,5 @@ fora do escopo atual — registrado aqui pra não se perder.
 
 1. **Tier 1 — hipóteses descartadas** ✅. Maior impacto/risco, dados prontos.
 2. **Tier 2 — code-aware RCA** ✅. O diferencial mais forte.
-3. **Tier 3 — get_slow_traces** 🗺️ *(próximo)*. Destrava "% do tempo" e N+1.
+3. **Tier 3 — get_slow_traces** ✅. Destrava "% do tempo" e N+1.
 4. **Norte** — correlação com deploy/histórico. Só depois do Postgres + feed de deploy.

@@ -1,5 +1,8 @@
 package io.whyjvm.sample;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import io.whyjvm.sample.checkout.CustomerRepository;
 import io.whyjvm.sample.checkout.CustomerService;
 import io.whyjvm.sample.checkout.OrderService;
@@ -26,6 +29,12 @@ import java.util.List;
  */
 @RestController
 public class DemoController {
+
+    private final Tracer tracer;
+
+    public DemoController(Tracer tracer) {
+        this.tracer = tracer;
+    }
 
     @GetMapping("/demo/ok")
     public String ok() {
@@ -85,6 +94,28 @@ public class DemoController {
     public String checkout(@RequestParam(name = "customer", defaultValue = "cliente-fantasma") String customer) {
         double total = orderService.totalWithDiscount(customer, 100.0);
         return "total com desconto: " + total;
+    }
+
+    /**
+     * Cenario N+1 (Tier 3): emite {@code count} sub-spans identicos ("SELECT orders"),
+     * cada um simulando uma query — o classico problema em que nenhuma chamada isolada
+     * e lenta, mas a repeticao domina a latencia. O laudo deve apontar o N+1 via
+     * get_slow_traces. Aqueca o baseline com count baixo antes de dar o pico (so dispara
+     * SLOW acima do limiar do p99 movel).
+     */
+    @GetMapping("/demo/n1")
+    public String nPlusOne(@RequestParam(name = "count", defaultValue = "12") int count) {
+        for (int i = 0; i < count; i++) {
+            Span query = tracer.spanBuilder("SELECT orders").startSpan();
+            try (Scope ignored = query.makeCurrent()) {
+                Thread.sleep(20); // simula a ida ao banco
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                query.end();
+            }
+        }
+        return "consultas executadas: " + count;
     }
 
     @GetMapping("/demo/error")
