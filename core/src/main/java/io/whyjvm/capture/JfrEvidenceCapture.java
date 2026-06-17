@@ -105,7 +105,8 @@ public final class JfrEvidenceCapture implements EvidenceCapture {
         IncidentRecord record = IncidentRecord.initial(
                 incidentId, capturedAt, incident.endpoint(), incident.type(),
                 incident.fingerprint(), incident.threadName(), incident.durationMs(),
-                1, exception, null, null);
+                1, exception, null, null)
+                .withSlowTraces(incident.slowTraces()); // arvore do trace (Tier 3), montada no disparo
 
         store.save(record);
         return new Captured(record, jfr);

@@ -95,6 +95,19 @@ class IncidentRecordSchemaTest {
         assertValid(withCode);
     }
 
+    @Test
+    void slowRecordWithSlowTracesMatchesSchema() throws Exception {
+        IncidentRecord rec = IncidentRecord.initial(
+                "POST-checkout-s1", Instant.parse("2026-06-15T14:03:07.812Z"),
+                "GET /orders", IncidentType.SLOW, "GET /orders|SLOW",
+                "http-nio-8080-exec-2", 80, 1, null, null, null)
+                .withSlowTraces(List.of(
+                        new SlowTrace("N+1: SELECT orders ×12", 60, 60),
+                        new SlowTrace("GET /orders", 20, 80)));
+
+        assertValid(rec);
+    }
+
     private static void assertValid(IncidentRecord record) throws Exception {
         JsonNode node = IncidentRecordJson.mapper().readTree(IncidentRecordJson.toJson(record));
         Set<ValidationMessage> errors = SCHEMA.validate(node);
