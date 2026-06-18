@@ -45,7 +45,9 @@ agregados, nunca eventos crus).
 | [`otel-extension/`](otel-extension/) | Extensão do agente OpenTelemetry: pluga o why-jvm em qualquer app Java **zero-código** (`-javaagent` + `-Dotel.javaagent.extensions=...`). Caminho recomendado. |
 | [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
 | [`llm/`](llm/) | Provider de IA real (`LangChain4jProvider`) — Gemini via LangChain4j, multi-provider por env. Também fora do `core`. |
-| [`analysis-service/`](analysis-service/) | O lado **Go** do split: recebe o `IncidentRecord` JSON do Java, persiste e roda a investigação fora do app. |
+
+O lado **Go** do split (o serviço de análise) vive em **repositório próprio**, fora
+deste projeto. O contrato entre os dois é o schema em [`schema/`](schema/).
 
 ## Usar (zero-código, recomendado)
 
@@ -66,8 +68,9 @@ Build do jar, modos e todas as chaves de config: [otel-extension/README.md](otel
 ### Modos
 
 - **Split** (com `whyjvm.forward.url`) — o Java só captura e encaminha o
-  `IncidentRecord` ao [`analysis-service`](analysis-service/) (Go), que roda o
-  agente e despacha. Leve, sobrevive ao OOM do app, sem key de LLM dentro do app.
+  `IncidentRecord` a um serviço de análise em **Go** separado (repositório
+  próprio), que roda o agente e despacha. Leve, sobrevive ao OOM do app, sem key
+  de LLM dentro do app.
 - **Simples** (sem `forward.url`) — o agente roda in-process e o sink publica o
   laudo. Default: `LoggingSink` + `StubLlmProvider` (degrada honesto, sem rede).
 
