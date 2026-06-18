@@ -52,7 +52,7 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
         boolean isError = s.getStatus().getStatusCode() == StatusCode.ERROR;
         long durationMs = durationNanos / 1_000_000;
 
-        IncidentType type = classify(s.getName(), isError, durationMs);
+        IncidentType type = classify(isRoot, s.getName(), isError, durationMs);
         if (type == null) {
             evictIfRoot(isRoot, traceId); // trace normal terminou: libera o buffer.
             return;
@@ -86,10 +86,19 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
      * Natureza do incidente, ou {@code null} se o request e normal. Erros sempre
      * disparam; lentidao so para requests bem-sucedidos — nao poluir o baseline
      * de latencia com a duracao de requests que falharam.
+     *
+     * <p>SLOW so e avaliado no <b>span raiz</b> (o limite do request): a lentidao
+     * do endpoint contra o baseline dele. Os spans-filho (queries, metodos,
+     * commits) entram na arvore do trace que explica a causa, mas nao disparam
+     * incidentes proprios — senao um unico request (ex.: N+1) viraria um alarme
+     * por sub-span lento, e o trafego sintetico de aquecimento idem.
      */
-    private IncidentType classify(String endpoint, boolean isError, long durationMs) {
+    private IncidentType classify(boolean isRoot, String endpoint, boolean isError, long durationMs) {
         if (isError) {
             return IncidentType.ERROR;
+        }
+        if (!isRoot) {
+            return null;
         }
         return baseline.isAnomalousAndRecord(endpoint, durationMs) ? IncidentType.SLOW : null;
     }
