@@ -64,7 +64,8 @@ class SlowTracesAcceptanceTest {
                 capture,
                 new AgentLoop(new StubLlmProvider(), new McpToolRegistry()),
                 laudo -> { }, // sink no-op
-                null);
+                null,
+                false);
         IncidentTriggerProcessor processor = new IncidentTriggerProcessor(
                 trigger,
                 new IncidentDeduplicator(Duration.ofMinutes(10)),

@@ -65,6 +65,7 @@ public final class WhyJvm {
         private Duration cooldown = Duration.ofMinutes(10);
         private double slowFactor = 3.0;
         private IncidentForwarder forwarder;
+        private boolean retainEvidence = false;
         private boolean codeAware = true;
         private List<String> appBasePackages = List.of();
         private List<Path> sourceDirs = List.of();
@@ -120,6 +121,16 @@ public final class WhyJvm {
         }
 
         /**
+         * Retem o snapshot JFR no disco apos a extracao. Default (false): o .jfr e
+         * apagado assim que os agregados sao extraidos — nada mais o le. Ligue para
+         * guardar os snapshots para forense manual.
+         */
+        public Builder retainEvidence(boolean retain) {
+            this.retainEvidence = retain;
+            return this;
+        }
+
+        /**
          * Code-aware RCA (Tier 2): anexa ao laudo o fonte do metodo suspeito. Ligado
          * por default — degrada honesto para "fonte indisponivel" quando nao acha o
          * fonte. Desligue se nao quiser a resolucao de fonte na captura.
@@ -169,7 +180,7 @@ public final class WhyJvm {
                     .register(new GetSlowTracesTool(incidentStore));
 
             AgentLoop agent = new AgentLoop(provider, registry, maxToolCalls);
-            TriggerService triggerService = new TriggerService(capture, agent, sink, forwarder);
+            TriggerService triggerService = new TriggerService(capture, agent, sink, forwarder, retainEvidence);
             IncidentDeduplicator dedup = new IncidentDeduplicator(cooldown);
             LatencyBaseline baseline = new LatencyBaseline(slowFactor);
             TraceSpanBuffer spanBuffer = new TraceSpanBuffer();

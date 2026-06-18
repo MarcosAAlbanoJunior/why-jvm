@@ -29,7 +29,8 @@ public final class WhyJvmFromConfig {
         WhyJvm.Builder builder = WhyJvm.builder()
                 .incidentDir(Path.of(incidentDir))
                 .cooldown(config.getDuration("whyjvm.cooldown", Duration.ofMinutes(10)))
-                .slowThreshold(config.getDouble("whyjvm.slow.threshold", 3.0));
+                .slowThreshold(config.getDouble("whyjvm.slow.threshold", 3.0))
+                .retainEvidence(config.getBoolean("whyjvm.evidence.retain", false));
 
         // Code-aware (Tier 2): pacotes da app e diretorios de fonte, app-agnostico.
         List<String> appPackages = config.getList("whyjvm.app.packages");

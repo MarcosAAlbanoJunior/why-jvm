@@ -8,6 +8,7 @@ import io.whyjvm.capture.IncidentRecord;
 import io.whyjvm.forward.IncidentForwarder;
 import io.whyjvm.sink.Sink;
 
+import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -35,13 +36,16 @@ public final class TriggerService {
     private final AgentLoop agent;
     private final Sink sink;
     private final IncidentForwarder forwarder; // null = modo simples (agente in-process)
+    private final boolean retainEvidence; // false = apaga o .jfr apos extrair (nada mais o le)
     private final ExecutorService investigators;
 
-    public TriggerService(EvidenceCapture capture, AgentLoop agent, Sink sink, IncidentForwarder forwarder) {
+    public TriggerService(EvidenceCapture capture, AgentLoop agent, Sink sink,
+                          IncidentForwarder forwarder, boolean retainEvidence) {
         this.capture = capture;
         this.agent = agent;
         this.sink = sink;
         this.forwarder = forwarder;
+        this.retainEvidence = retainEvidence;
         this.investigators = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "whyjvm-investigator");
             t.setDaemon(true);
@@ -70,7 +74,25 @@ public final class TriggerService {
             } catch (Exception e) {
                 LOG.log(Level.SEVERE, "Falha ao processar incidente "
                         + captured.record().incidentId(), e);
+            } finally {
+                discardEvidence(captured);
             }
         });
+    }
+
+    /**
+     * Apaga o snapshot JFR depois do uso: a extracao ja leu tudo para o
+     * {@link IncidentRecord} e nada mais abre o .jfr. Mantido em disco apenas se
+     * {@code retainEvidence} (forense manual).
+     */
+    private void discardEvidence(Captured captured) {
+        if (retainEvidence || captured.jfr() == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(captured.jfr());
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Falha ao apagar snapshot JFR " + captured.jfr(), e);
+        }
     }
 }

@@ -48,6 +48,7 @@ Cada chave aceita system property (`-Dwhyjvm.x.y`) **ou** env var equivalente
 | `whyjvm.source.dirs` | — | Diretórios de fonte da app (lista por vírgula), p/ o code-aware. |
 | `whyjvm.cooldown` | `10m` | Janela de dedup por fingerprint. |
 | `whyjvm.slow.threshold` | `3.0` | Múltiplo do p99 móvel que marca SLOW. |
+| `whyjvm.evidence.retain` | `false` | Mantém o snapshot `.jfr` no disco após a extração. Default apaga (nada mais o lê). |
 
 ## Notas
 
