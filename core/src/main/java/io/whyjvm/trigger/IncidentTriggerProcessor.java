@@ -18,8 +18,8 @@ import java.util.List;
  * e exceptions registradas no span. E barato porque e so uma checagem por
  * request, em memoria.
  *
- * <p>Fase 0: detecta apenas ERROR. Fase 1 adiciona fingerprint/dedup/cooldown.
- * Fase 3 adiciona deteccao de lentidao por baseline movel.
+ * <p>Detecta ERROR (status do span) e SLOW (latencia acima do baseline movel por
+ * endpoint), com fingerprint/dedup/cooldown, e monta a arvore do trace no disparo.
  */
 public final class IncidentTriggerProcessor implements SpanProcessor {
 

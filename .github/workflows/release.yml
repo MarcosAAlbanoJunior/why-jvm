@@ -1,0 +1,48 @@
+name: release
+
+# Publica o jar da extensao why-jvm (otel-extension) como asset de release.
+# Os consumidores (ex.: o playground) baixam o jar por URL — nunca buildam o codigo.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build shadowJar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :otel-extension:shadowJar --no-daemon
+
+      # Renomeia para um nome estavel (sem versao) para a URL do release ser previsivel.
+      - name: Stage asset with stable name
+        run: |
+          mkdir -p dist
+          cp otel-extension/build/libs/*-all.jar dist/why-jvm-otel-extension-all.jar
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: why-jvm-otel-extension-all
+          path: dist/why-jvm-otel-extension-all.jar
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/why-jvm-otel-extension-all.jar

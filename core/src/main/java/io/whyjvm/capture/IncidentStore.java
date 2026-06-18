@@ -3,8 +3,8 @@ package io.whyjvm.capture;
 import java.util.Optional;
 
 /**
- * Armazenamento duravel dos incidentes. Diretorio no v1, Postgres quando
- * escalar. O agente investiga o registro congelado, de forma assincrona.
+ * Armazenamento dos incidentes. Em memoria hoje, Postgres quando escalar.
+ * O agente investiga o registro congelado, de forma assincrona.
  */
 public interface IncidentStore {
 

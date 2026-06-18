@@ -7,7 +7,7 @@ import java.util.Map;
  * acao: le o pacote de evidencia e devolve um <b>agregado</b>, nunca eventos
  * crus. Audite o tamanho de cada retorno: e onde o custo de token escapa.
  *
- * <p>No v1 as tools sao chamadas em processo. Na Fase 5 cada uma vira uma
+ * <p>Hoje as tools sao chamadas em processo. No split, cada uma vira uma
  * {@code SyncToolSpecification} do SDK MCP exposta por transporte HTTP, sem
  * mudar a logica de agregacao aqui dentro.
  */

@@ -1,7 +1,7 @@
 # Copie este arquivo para `why-jvm-local.properties` (na raiz do repo) e preencha.
 # Esse arquivo COM segredos esta no .gitignore e nao vai pro git.
-# O app le estas chaves pelo Environment do Spring; cada uma tambem aceita a
-# variavel de ambiente equivalente (ex.: LLM_API_KEY, WHYJVM_SMTP_HOST).
+# Cada chave e lida como system property (-Dchave) ou variavel de ambiente
+# equivalente (ex.: LLM_API_KEY, WHYJVM_SMTP_HOST).
 
 # --- IA (Gemini) ---
 llm.api-key=sua-chave-do-google-ai-studio
@@ -23,5 +23,5 @@ whyjvm.mail.to=voce@gmail.com
 #   whyjvm.app.packages: pacotes-raiz da app (lista por virgula), p/ separar o
 #                        frame da app do de framework/JDK.
 #   whyjvm.source.dirs : diretorios de fonte da app (lista por virgula).
-whyjvm.app.packages=io.whyjvm.sample
-whyjvm.source.dirs=sample-app/src/main/java
+whyjvm.app.packages=com.suaapp
+whyjvm.source.dirs=/opt/suaapp/src/main/java

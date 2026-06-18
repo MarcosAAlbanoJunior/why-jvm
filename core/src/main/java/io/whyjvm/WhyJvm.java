@@ -37,8 +37,7 @@ import java.util.List;
  * {@code SdkTracerProvider}.
  *
  * <p>Use o {@link Builder} para escolher provider de IA e sink (as duas
- * fronteiras de extensao). Os defaults fecham o circuito da Fase 0 sem
- * precisar de key.
+ * fronteiras de extensao). Os defaults rodam sem precisar de key.
  */
 public final class WhyJvm {
 
@@ -111,7 +110,7 @@ public final class WhyJvm {
         }
 
         /**
-         * Modo split (Fase 5): encaminha o incidente para o servico de analise em
+         * Modo split: encaminha o incidente para o servico de analise em
          * Go em vez de rodar o agente in-process. Sem forwarder, fica no modo
          * simples (agente + sink locais).
          */
