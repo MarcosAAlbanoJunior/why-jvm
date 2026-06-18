@@ -1,5 +1,6 @@
 package io.whyjvm.trigger;
 
+import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.trace.ReadWriteSpan;
@@ -50,9 +51,10 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
         spanBuffer.record(traceId, s.getSpanId(), parentSpanId, s.getName(), durationNanos);
 
         boolean isError = s.getStatus().getStatusCode() == StatusCode.ERROR;
+        boolean isServerEntry = s.getKind() == SpanKind.SERVER;
         long durationMs = durationNanos / 1_000_000;
 
-        IncidentType type = classify(isRoot, s.getName(), isError, durationMs);
+        IncidentType type = classify(isServerEntry, s.getName(), isError, durationMs);
         if (type == null) {
             evictIfRoot(isRoot, traceId); // trace normal terminou: libera o buffer.
             return;
@@ -87,17 +89,22 @@ public final class IncidentTriggerProcessor implements SpanProcessor {
      * disparam; lentidao so para requests bem-sucedidos — nao poluir o baseline
      * de latencia com a duracao de requests que falharam.
      *
-     * <p>SLOW so e avaliado no <b>span raiz</b> (o limite do request): a lentidao
-     * do endpoint contra o baseline dele. Os spans-filho (queries, metodos,
-     * commits) entram na arvore do trace que explica a causa, mas nao disparam
-     * incidentes proprios — senao um unico request (ex.: N+1) viraria um alarme
-     * por sub-span lento, e o trafego sintetico de aquecimento idem.
+     * <p>SLOW so e avaliado no <b>span de entrada do request</b> ({@link SpanKind#SERVER}):
+     * a lentidao do endpoint contra o baseline dele. Os spans-filho (queries CLIENT,
+     * metodos/commits INTERNAL) entram na arvore do trace que explica a causa, mas
+     * nao disparam incidentes proprios — senao um unico request (ex.: N+1) viraria
+     * um alarme por sub-span lento.
+     *
+     * <p>O criterio e o <b>kind</b>, nao "ser raiz do trace": um aquecimento que bate
+     * na propria app (cliente HTTP interno) gera um span SERVER <b>com pai</b> (o span
+     * client). Esse span ainda e o limite do request e precisa alimentar o baseline —
+     * gatear por "sem pai" o deixaria de fora e o baseline nunca aqueceria.
      */
-    private IncidentType classify(boolean isRoot, String endpoint, boolean isError, long durationMs) {
+    private IncidentType classify(boolean isServerEntry, String endpoint, boolean isError, long durationMs) {
         if (isError) {
             return IncidentType.ERROR;
         }
-        if (!isRoot) {
+        if (!isServerEntry) {
             return null;
         }
         return baseline.isAnomalousAndRecord(endpoint, durationMs) ? IncidentType.SLOW : null;
