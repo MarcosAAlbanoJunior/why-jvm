@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * request. A decisao de disparar e a marcacao da janela acontecem atomicamente
  * por fingerprint via {@link ConcurrentMap#compute}.
  *
- * <p>TODO Fase 5: quando escalar para varias JVMs, mover este estado para Redis
+ * <p>TODO: quando escalar para varias JVMs, mover este estado para Redis
  * (o cooldown passa a ser global, nao por instancia).
  */
 public final class IncidentDeduplicator {

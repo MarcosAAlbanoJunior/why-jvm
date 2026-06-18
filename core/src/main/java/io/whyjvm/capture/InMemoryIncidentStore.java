@@ -5,10 +5,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Store em memoria para o v1. O snapshot JFR ja esta em disco; aqui guardamos
+ * Store em memoria. O snapshot JFR ja esta em disco; aqui guardamos
  * apenas os metadados do incidente, indexados por id.
  *
- * <p>TODO Fase 5: trocar por Postgres para sobreviver a restart e atender
+ * <p>TODO: trocar por Postgres para sobreviver a restart e atender
  * varias JVMs a partir de um cerebro central.
  */
 public final class InMemoryIncidentStore implements IncidentStore {

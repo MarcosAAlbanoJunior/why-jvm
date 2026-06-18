@@ -8,7 +8,7 @@ import io.whyjvm.mcp.ToolResult;
 import java.util.Map;
 
 /**
- * Fase 0: a unica tool do circuito fechado. Devolve o stack trace da exception,
+ * Devolve o stack trace da exception,
  * a mensagem e o span de origem do incidente.
  */
 public final class GetExceptionDetailsTool implements Tool {

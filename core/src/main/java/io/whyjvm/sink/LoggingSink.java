@@ -5,7 +5,7 @@ import io.whyjvm.agent.Laudo;
 import java.util.logging.Logger;
 
 /**
- * Sink padrao: escreve o laudo no log. Util no v1 e como fallback. Sinks reais
+ * Sink padrao: escreve o laudo no log. Util como default e fallback. Sinks reais
  * (Slack, WhatsApp) implementam a mesma interface.
  */
 public final class LoggingSink implements Sink {

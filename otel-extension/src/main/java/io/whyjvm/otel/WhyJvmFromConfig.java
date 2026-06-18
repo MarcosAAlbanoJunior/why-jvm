@@ -10,8 +10,8 @@ import java.util.List;
 
 /**
  * Monta o {@link WhyJvm} a partir da config do agente OTel ({@link ConfigProperties}).
- * Espelha o {@code WhyJvmConfig} do sample-app, trocando o {@code Environment} do
- * Spring pelas mesmas chaves lidas do OTel — as mesmas que qualquer app usaria.
+ * Le as chaves {@code whyjvm.*} do OTel — as mesmas que qualquer app usaria — sem
+ * depender de Spring nem de wiring no codigo da aplicacao.
  *
  * <p>Com {@code whyjvm.forward.url} setada, vai para o <b>modo split</b>: so captura
  * e encaminha o incidente ao servico de analise (o LLM roda la). Sem ela, cai no

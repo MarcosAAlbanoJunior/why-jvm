@@ -20,7 +20,7 @@ import java.util.logging.Logger;
  *
  * <p>Dois destinos, decididos pela presenca de um {@link IncidentForwarder}:
  * <ul>
- *   <li><b>Split (Fase 5):</b> com forwarder, o Java <b>encaminha</b> o registro
+ *   <li><b>Split:</b> com forwarder, o Java <b>encaminha</b> o registro
  *       ao servico de analise em Go (que investiga e despacha). O Java nao roda o
  *       agente — leve, sobrevive ao OOM, sem key de LLM.</li>
  *   <li><b>Modo simples:</b> sem forwarder, o agente investiga in-process e o
@@ -50,7 +50,7 @@ public final class TriggerService {
     }
 
     public void fire(Incident incident) {
-        // Portao 2 / 5.5#1: congelar AGORA, sincronamente (so o freeze, barato).
+        // Congelar AGORA, sincronamente (so o freeze, barato).
         Captured captured = capture.freeze(incident);
         LOG.info("Incidente congelado: " + captured.record().incidentId()
                 + " (" + captured.record().endpoint() + ")");

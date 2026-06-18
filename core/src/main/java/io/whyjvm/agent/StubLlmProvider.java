@@ -9,11 +9,11 @@ import java.util.regex.Pattern;
 
 /**
  * Provider deterministico, sem key, para fechar o circuito sem LLM e para testes.
- * Imita o caminho minimo de um agente real: {@code triage} primeiro (Fase 2),
+ * Imita o caminho minimo de um agente real: {@code triage} primeiro,
  * depois drill-down em {@code get_exception_details}, e por fim um laudo JSON.
  *
  * <p>Adapta-se ao catalogo: so chama uma tool se ela estiver registrada, entao
- * funciona tanto com a triagem quanto sem (degrada para o circuito da Fase 0).
+ * funciona tanto com a triagem quanto sem (degrada para so o get_exception_details).
  *
  * <p>Troque por um provider real (Claude/Gemini) implementando {@link LlmProvider}.
  */
@@ -30,14 +30,14 @@ public final class StubLlmProvider implements LlmProvider {
     public LlmResponse generate(List<Message> context, List<Tool> tools) {
         String incidentId = extractIncidentId(context);
 
-        // 1) Sempre comeca por triage, se disponivel (Fase 2).
+        // 1) Sempre comeca por triage, se disponivel.
         if (available(tools, "triage") && !alreadyCalled(context, "triage")) {
             return LlmResponse.callTools(List.of(
                     new ToolCall("call-triage", "triage", Map.of("incidentId", incidentId))));
         }
 
         // 2) Drill-down dirigido: segue o "Proximo passo sugerido" da triagem.
-        //    Sem triagem, cai no get_exception_details (circuito da Fase 0).
+        //    Sem triagem, cai no get_exception_details.
         String drill = suggestedNextTool(context, tools);
         if (drill == null && available(tools, "get_exception_details")) {
             drill = "get_exception_details";

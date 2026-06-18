@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * O pacote de evidencia duravel de um incidente, ja com os agregados extraidos do
- * JFR. E o que as tools leem (sem re-parsear o snapshot) e o que, no split (Fase 5),
+ * JFR. E o que as tools leem (sem re-parsear o snapshot) e o que, no split,
  * serializa para o JSON do contrato e viaja ao servico de analise em Go.
  *
  * <p>Os nomes dos componentes batem 1:1 com as chaves do schema

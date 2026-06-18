@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>Thread-safe: a janela de cada endpoint sincroniza internamente; {@code onEnd}
  * e concorrente.
  *
- * <p>TODO Fase 5: estado por instancia; com varias JVMs, mover para Redis para um
+ * <p>TODO: estado por instancia; com varias JVMs, mover para Redis para um
  * baseline global por endpoint.
  */
 public final class LatencyBaseline {

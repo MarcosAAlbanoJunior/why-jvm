@@ -1,32 +1,14 @@
 # why-jvm-mcp
 
 Root Cause Analysis automático para aplicações Java, acionado por gatilho. Quando
-um endpoint dá erro (ou, nas próximas fases, fica lento), um gatilho determinístico
-**congela** uma janela de evidências (JFR + OpenTelemetry) e dispara um agente de IA
-que investiga e explica, em linguagem natural, o que aconteceu e por quê.
+um endpoint dá **erro** ou fica **lento**, um gatilho determinístico **congela**
+uma janela de evidências (JFR + OpenTelemetry) e um agente investiga e explica, em
+linguagem natural, o que aconteceu e por quê.
 
 A premissa: a IA nunca lê o firehose. Ela só roda quando algo quebra, e mesmo assim
-só enxerga agregados do incidente. Isso é o que torna o custo de token viável.
+só enxerga agregados do incidente — é o que torna o custo de token viável.
 
-> Visão completa e racional do design: [INSTRUCTION.md](INSTRUCTION.md).
-> Como plugar num app real (e o caminho para `-javaagent` zero-código): [INTEGRATION.md](INTEGRATION.md).
-> Contrato do split: o que o serviço de análise em Go recebe do Java e faz: [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md).
-> Ordem concreta de execução do split (Fase 5 + 5.5): [ROADMAP.md](ROADMAP.md).
-> Profundidade do RCA (hipóteses descartadas, code-aware, slow-traces): [RCA-DEPTH.md](RCA-DEPTH.md).
-
-
-## Módulos
-
-| Módulo | O que é |
-|---|---|
-| [`core/`](core/) | A biblioteca — o produto. Gatilho, captura, tools MCP, agente, sink. JAR puro, sem Spring. |
-| [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail hoje; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
-| [`llm/`](llm/) | Provider de IA real (`LangChain4jProvider`) — Gemini via LangChain4j, multi-provider por env. Também fora do `core`. |
-| [`sample-app/`](sample-app/) | App Spring Boot de teste. Existe só para gerar spans reais e exercitar o circuito. Não é o produto. |
-| [`otel-extension/`](otel-extension/) | Extensão do agente OpenTelemetry: pluga o why-jvm em qualquer app Java **zero-código** (`-javaagent` + `-Dotel.javaagent.extensions=...`). Jar shaded, modo split. |
-| [`analysis-service/`](analysis-service/) | O lado **Go** do split (Fase 5): recebe o `IncidentRecord` JSON do Java, persiste e (próximas fases) serve tools MCP + agente + canais. Módulo Go próprio; não parseia JFR. |
-
-## Arquitetura (pacotes do `core`)
+## Como funciona
 
 ```
 SpanProcessor.onEnd ──► TriggerService ──► EvidenceCapture (JFR takeSnapshot, SÍNCRONO)
@@ -41,65 +23,89 @@ SpanProcessor.onEnd ──► TriggerService ──► EvidenceCapture (JFR take
                               (sink/)
 ```
 
-As duas **fronteiras de extensão** do modo autônomo:
+Dois portões controlam o custo: o **gatilho** decide *quando* a IA roda (sem
+incidente, custo zero); a **agregação** decide *quanto* ela lê (as tools devolvem
+agregados, nunca eventos crus).
 
-- **`LlmProvider`** (`agent/`) — qual IA. BYOK: a implementação lê a própria key do
-  ambiente; o núcleo nunca guarda credencial. Default: `StubLlmProvider` (sem key).
-  Provider real no módulo [`llm/`](llm/): `LangChain4jProvider` (Gemini hoje;
-  Claude/OpenAI/Ollama trocando dependência + env, ver `LlmProviders.fromEnv()`).
-- **`Sink`** (`sink/`) — onde o laudo é postado. Default: `LoggingSink`; e-mail no
-  módulo [`sinks/`](sinks/).
+## O que detecta
 
-Trocam-se via `WhyJvm.builder().llmProvider(...).sink(...)`.
+- **Erro** — span com status ERROR dispara na hora.
+- **Lentidão** — baseline móvel de p99 por endpoint, sem limiar global.
+- **Controle de tempestade** — fingerprint + dedup + cooldown: uma investigação
+  por fingerprint a cada janela; as demais ocorrências só incrementam um contador.
+- **Code-aware (Tier 2)** — anexa ao laudo o trecho de fonte do método suspeito.
+- **Árvore do trace (Tier 3)** — expõe padrões como N+1 de JDBC nos sub-spans.
+- **Dimensões JFR** — GC, alocação, contenção de lock, atividade de thread.
 
-## Rodando o circuito da Fase 0
+## Módulos
+
+| Módulo | O que é |
+|---|---|
+| [`core/`](core/) | A biblioteca — o produto. Gatilho, captura, tools MCP, agente, sink. JAR puro, sem Spring. |
+| [`otel-extension/`](otel-extension/) | Extensão do agente OpenTelemetry: pluga o why-jvm em qualquer app Java **zero-código** (`-javaagent` + `-Dotel.javaagent.extensions=...`). Caminho recomendado. |
+| [`sinks/`](sinks/) | Sinks reais que puxam dependência de transporte (e-mail via Jakarta Mail; Slack/WhatsApp depois). Fora do `core` para mantê-lo puro. |
+| [`llm/`](llm/) | Provider de IA real (`LangChain4jProvider`) — Gemini via LangChain4j, multi-provider por env. Também fora do `core`. |
+| [`analysis-service/`](analysis-service/) | O lado **Go** do split: recebe o `IncidentRecord` JSON do Java, persiste e roda a investigação fora do app. |
+
+## Usar (zero-código, recomendado)
+
+O why-jvm é uma **extensão do agente OpenTelemetry** — pluga sem tocar no código da
+aplicação. O agente OTel já auto-instrumenta HTTP/JDBC; a extensão registra o
+gatilho + a captura por cima.
 
 ```bash
-./gradlew :sample-app:bootRun
-# em outro terminal:
-curl http://localhost:8080/demo/error
+java -javaagent:opentelemetry-javaagent.jar \
+     -Dotel.javaagent.extensions=why-jvm-otel-extension-all.jar \
+     -Dwhyjvm.forward.url=http://localhost:9090 \
+     -Dwhyjvm.app.packages=com.suaapp \
+     -jar suaapp.jar
 ```
 
-O `/demo/error` lança uma exception → o gatilho dispara → JFR congela a janela →
-o agente (stub) monta um laudo → o sink imprime no log. O snapshot `.jfr` fica em
-`incidents/`.
+Build do jar, modos e todas as chaves de config: [otel-extension/README.md](otel-extension/README.md).
 
-### Code-aware RCA (Tier 2): o fonte do método suspeito no laudo
+### Modos
 
-Em incidentes de erro, o laudo pode incluir o **trecho de fonte** do método no topo
-do stack da app — não só "NPE na linha 20", mas o código com a linha marcada. A
-resolução roda no agente in-JVM (o serviço Go nunca acessa o fonte); é configurada
-por env e **app-agnóstica** — o mesmo agente serve qualquer app:
+- **Split** (com `whyjvm.forward.url`) — o Java só captura e encaminha o
+  `IncidentRecord` ao [`analysis-service`](analysis-service/) (Go), que roda o
+  agente e despacha. Leve, sobrevive ao OOM do app, sem key de LLM dentro do app.
+- **Simples** (sem `forward.url`) — o agente roda in-process e o sink publica o
+  laudo. Default: `LoggingSink` + `StubLlmProvider` (degrada honesto, sem rede).
+
+## Usar (como biblioteca)
+
+Para apps que já montam o próprio `SdkTracerProvider`:
+
+```java
+WhyJvm whyjvm = WhyJvm.builder()
+        .llmProvider(...)   // BYOK; default StubLlmProvider
+        .sink(...)          // default LoggingSink
+        .build();
+tracerProvider.addSpanProcessor(whyjvm.spanProcessor());
+```
+
+### Code-aware RCA (Tier 2)
+
+Em erros, o laudo pode incluir o **trecho de fonte** do método no topo do stack da
+app — não só "NPE na linha 20", mas o código com a linha marcada. Configurado por
+env, app-agnóstico (o agente in-JVM resolve o fonte; o serviço Go nunca o acessa):
 
 | Chave | Env | O que é |
 |---|---|---|
-| `whyjvm.app.packages` | `WHYJVM_APP_PACKAGES` | pacotes-raiz da app (ex.: `com.acme`), para separar o frame da app do de framework/JDK. Lista por vírgula. |
-| `whyjvm.source.dirs` | `WHYJVM_SOURCE_DIRS` | diretórios de fonte da app (ex.: `/opt/app/src/main/java`). Lista por vírgula. |
+| `whyjvm.app.packages` | `WHYJVM_APP_PACKAGES` | pacotes-raiz da app (ex.: `com.acme`), para separar o frame da app do de framework/JDK. |
+| `whyjvm.source.dirs` | `WHYJVM_SOURCE_DIRS` | diretórios de fonte da app. |
 
-Sem elas, o code-aware degrada honesto para *"fonte indisponível em runtime"* (nomeia
-o método, sem o trecho). Exemplo com o sample (NPE real em `CustomerService.calculateDiscount`):
-
-```bash
-WHYJVM_APP_PACKAGES=io.whyjvm.sample \
-WHYJVM_SOURCE_DIRS=sample-app/src/main/java \
-./gradlew :sample-app:bootRun
-# em outro terminal:
-curl "http://localhost:8080/demo/checkout?customer=fantasma"
-```
-
-## Onde cada fase do roadmap mora no código
-
-| Fase | Entrega | Status no código |
-|---|---|---|
-| 0 | Circuito fechado: erro → captura → `get_exception_details` → laudo | ✅ esqueleto pronto |
-| 1 | Fingerprint, dedup e cooldown (controle de tempestade) | ✅ `Fingerprints` + `IncidentDeduplicator` |
-| 2 | `triage` determinística (correlação latência×GC×lock) | ✅ `TriageTool` (correlação JFR vem na Fase 3) |
-| 3 | Baseline de lentidão + tools de GC/alocação/lock | 🟢 baseline + tools JFR (GC/aloc/lock) + triagem correlacionada; falta `get_slow_traces` (captura da árvore do trace) |
-| 4 | Sinks reais (e-mail, Slack, WhatsApp) | 🟢 `EmailSink` (módulo `sinks/`, SMTP via env); Slack/WhatsApp pendentes |
-| 5 | Split MCP por HTTP (SDK `io.modelcontextprotocol.sdk:mcp`), agente em Go | 📄 contrato em [GO-ANALYSIS-SERVICE.md](GO-ANALYSIS-SERVICE.md) |
-| 5.5 | Production-hardening: dump assíncrono + single-flight, dedup/baseline compartilhado (Redis), JFR config tunado | ⬜ planejado (ver INSTRUCTION §10) |
+Sem elas, degrada honesto para *"fonte indisponível em runtime"* (nomeia o método,
+sem o trecho).
 
 ## Requisitos
 
-- JDK 21 (LTS). O `jdk.ObjectAllocationSample` (Fase 3) precisa de JDK 16+.
-- O Gradle vem pelo wrapper (`./gradlew`), não precisa instalar.
+- JDK 21 (LTS). O `jdk.ObjectAllocationSample` (hotspots de alocação) precisa de JDK 16+.
+- Gradle vem pelo wrapper (`./gradlew`), não precisa instalar.
+
+## Design
+
+Aprofundamento em [`docs/`](docs/): visão geral do design
+([INSTRUCTION](docs/INSTRUCTION.md)), guia de integração
+([INTEGRATION](docs/INTEGRATION.md)), contrato do split
+([GO-ANALYSIS-SERVICE](docs/GO-ANALYSIS-SERVICE.md)), profundidade do RCA
+([RCA-DEPTH](docs/RCA-DEPTH.md)) e roadmap ([ROADMAP](docs/ROADMAP.md)).
