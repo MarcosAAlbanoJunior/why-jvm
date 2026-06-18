@@ -1,4 +1,4 @@
-# why-jvm-mcp
+# why-jvm
 
 Root Cause Analysis automático para aplicações Java, acionado por gatilho. Quando
 um endpoint dá **erro** ou fica **lento**, um gatilho determinístico **congela**
